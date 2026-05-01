@@ -4,6 +4,7 @@ import com.campus.annotation.Log;
 import com.campus.entity.Product;
 import com.campus.entity.User;
 import com.campus.service.CategoryService;
+import com.campus.service.ProductMatchService;
 import com.campus.service.ProductService;
 import com.campus.service.RecommendService;
 import com.campus.util.FileUploadUtil;
@@ -38,6 +39,9 @@ public class ProductController {
 
     @Autowired
     private RecommendService recommendService;
+
+    @Autowired
+    private ProductMatchService productMatchService;
 
     @Value("${upload.path}")
     private String uploadPath;
@@ -209,7 +213,13 @@ public class ProductController {
         Map<String, Object> result = new HashMap<>();
         User user = (User) session.getAttribute("user");
         if (user != null) {
-            List<Product> recommendations = recommendService.getPersonalizedRecommendations(user.getId(), 8);
+            List<Product> recommendations = new java.util.ArrayList<>();
+            for (com.campus.recommend.RecommendationItem item : productMatchService.getInboxRecommendations(user.getId(), 8)) {
+                recommendations.add(item.getProduct());
+            }
+            if (recommendations.isEmpty()) {
+                recommendations = recommendService.getPersonalizedRecommendations(user.getId(), 8);
+            }
             result.put("success", true);
             result.put("data", recommendations);
         } else {
