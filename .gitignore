@@ -33,5 +33,6 @@ upload/
 # Local config (do not commit secrets)
 src/main/resources/db.properties
 
+团队分工方案.md
 
 

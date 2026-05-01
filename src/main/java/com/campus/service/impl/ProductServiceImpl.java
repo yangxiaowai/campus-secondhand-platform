@@ -2,10 +2,12 @@ package com.campus.service.impl;
 
 import com.campus.dao.ProductMapper;
 import com.campus.entity.Product;
+import com.campus.event.ProductPublishedEvent;
 import com.campus.service.ProductService;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -18,6 +20,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public PageInfo<Product> findList(String keyword, Integer categoryId, Integer pageNum, Integer pageSize) {
@@ -42,7 +47,11 @@ public class ProductServiceImpl implements ProductService {
     public boolean publish(Product product) {
         product.setStatus(0); // 在售状态
         product.setViewCount(0);
-        return productMapper.insert(product) > 0;
+        boolean success = productMapper.insert(product) > 0;
+        if (success) {
+            eventPublisher.publishEvent(new ProductPublishedEvent(this, product));
+        }
+        return success;
     }
 
     @Override

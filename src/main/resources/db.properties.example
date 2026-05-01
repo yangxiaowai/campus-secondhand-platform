@@ -1,8 +1,0 @@
-jdbc.driver=com.mysql.cj.jdbc.Driver
-jdbc.url=jdbc:mysql://localhost:3306/secondhand_market?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
-jdbc.username=your_username
-jdbc.password=your_password
-
-# 文件上传路径（请根据实际情况修改）
-upload.path=/tmp/upload/
-
