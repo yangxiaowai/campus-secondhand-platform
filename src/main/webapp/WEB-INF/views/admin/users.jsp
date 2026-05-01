@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,9 +12,9 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/admin/index">管理后台</a>
+            <a class="navbar-brand" href="${ctx}/admin/index">管理后台</a>
             <div class="ml-auto">
-                <a href="/admin/index" class="btn btn-sm btn-outline-light">返回</a>
+                <a href="${ctx}/admin/index" class="btn btn-sm btn-outline-light">返回</a>
             </div>
         </div>
     </nav>
@@ -51,10 +52,10 @@
                         <td><fmt:formatDate value="${user.createTime}" pattern="yyyy-MM-dd HH:mm"/></td>
                         <td>
                             <c:if test="${user.status == 1}">
-                                <button class="btn btn-sm btn-warning" onclick="freeze(${user.id})">冻结</button>
+                                <button class="btn btn-sm btn-warning" onclick="freeze('${user.id}')">冻结</button>
                             </c:if>
                             <c:if test="${user.status == 0}">
-                                <button class="btn btn-sm btn-success" onclick="unfreeze(${user.id})">解冻</button>
+                                <button class="btn btn-sm btn-success" onclick="unfreeze('${user.id}')">解冻</button>
                             </c:if>
                         </td>
                     </tr>
@@ -69,7 +70,7 @@
         function freeze(id) {
             if (confirm('确定要冻结此用户吗？')) {
                 $.ajax({
-                    url: '/admin/user/updateStatus',
+                    url: '${ctx}/admin/user/updateStatus',
                     type: 'POST',
                     data: {id: id, status: 0},
                     success: function(result) {
@@ -85,7 +86,7 @@
 
         function unfreeze(id) {
             $.ajax({
-                url: '/admin/user/updateStatus',
+                url: '${ctx}/admin/user/updateStatus',
                 type: 'POST',
                 data: {id: id, status: 1},
                 success: function(result) {

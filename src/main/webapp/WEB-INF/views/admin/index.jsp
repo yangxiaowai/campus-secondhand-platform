@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,9 +11,9 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/admin/index">管理后台</a>
+            <a class="navbar-brand" href="${ctx}/admin/index">管理后台</a>
             <div class="ml-auto">
-                <a href="/" class="btn btn-sm btn-outline-light">返回首页</a>
+                <a href="${ctx}/" class="btn btn-sm btn-outline-light">返回首页</a>
             </div>
         </div>
     </nav>
@@ -47,9 +48,9 @@
         </div>
 
         <div class="mt-4">
-            <a href="/admin/users" class="btn btn-primary mr-2">用户管理</a>
-            <a href="/admin/products" class="btn btn-primary mr-2">商品管理</a>
-            <a href="/admin/orders" class="btn btn-primary">订单管理</a>
+            <a href="${ctx}/admin/users" class="btn btn-primary mr-2">用户管理</a>
+            <a href="${ctx}/admin/products" class="btn btn-primary mr-2">商品管理</a>
+            <a href="${ctx}/admin/orders" class="btn btn-primary">订单管理</a>
         </div>
     </div>
 

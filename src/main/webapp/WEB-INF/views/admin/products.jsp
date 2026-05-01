@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,9 +12,9 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
-            <a class="navbar-brand" href="/admin/index">管理后台</a>
+            <a class="navbar-brand" href="${ctx}/admin/index">管理后台</a>
             <div class="ml-auto">
-                <a href="/admin/index" class="btn btn-sm btn-outline-light">返回</a>
+                <a href="${ctx}/admin/index" class="btn btn-sm btn-outline-light">返回</a>
             </div>
         </div>
     </nav>
@@ -49,9 +50,9 @@
                         </td>
                         <td><fmt:formatDate value="${product.createTime}" pattern="yyyy-MM-dd HH:mm"/></td>
                         <td>
-                            <a href="/product/detail?id=${product.id}" class="btn btn-sm btn-info">查看</a>
+                            <a href="${ctx}/product/detail?id=${product.id}" class="btn btn-sm btn-info">查看</a>
                             <c:if test="${product.status != 2}">
-                                <button class="btn btn-sm btn-warning" onclick="offline(${product.id})">下架</button>
+                                <button class="btn btn-sm btn-warning" onclick="offline('${product.id}')">下架</button>
                             </c:if>
                         </td>
                     </tr>
@@ -66,7 +67,7 @@
         function offline(id) {
             if (confirm('确定要下架此商品吗？')) {
                 $.ajax({
-                    url: '/admin/product/offline',
+                    url: '${ctx}/admin/product/offline',
                     type: 'POST',
                     data: {id: id},
                     success: function(result) {
