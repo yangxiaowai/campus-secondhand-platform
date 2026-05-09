@@ -32,7 +32,7 @@
                         <div class="col-md-3 mb-3">
                             <div class="card card-ui h-100">
                                 <a href="${ctx}/product/detail?id=${product.id}">
-                                    <img src="${product.imageUrl}" class="card-img-top product-image" 
+                                    <img src="${ctx}${product.imageUrl}" class="card-img-top product-image" 
                                          alt="${product.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                                 </a>
                                 <div class="card-body">

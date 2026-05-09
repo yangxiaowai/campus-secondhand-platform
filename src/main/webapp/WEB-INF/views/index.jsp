@@ -92,7 +92,7 @@
                                     <span class="badge-status badge-live">热度 ${product.viewCount}</span>
                                 </div>
                                 <a href="${ctx}/product/detail?id=${product.id}">
-                                    <img src="${product.imageUrl}" class="card-img-top product-image"
+                                    <img src="${ctx}${product.imageUrl}" class="card-img-top product-image"
                                          alt="${product.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                                 </a>
                                 <div class="card-body">

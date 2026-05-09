@@ -88,7 +88,7 @@
                         <c:if test="${product.status == 2}">
                             <span class="status-badge badge badge-warning px-3 py-2">已下架</span>
                         </c:if>
-                        <img src="${product.imageUrl}" class="card-img-top product-main-img p-3"
+                        <img src="${ctx}${product.imageUrl}" class="card-img-top product-main-img p-3"
                              alt="${product.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                     </div>
                 </div>
@@ -184,7 +184,7 @@
                             <div class="col-md-3 mb-3">
                                 <div class="card similar-card h-100">
                                     <a href="${ctx}/product/detail?id=${sp.id}">
-                                        <img src="${sp.imageUrl}" class="card-img-top similar-img" 
+                                        <img src="${ctx}${sp.imageUrl}" class="card-img-top similar-img" 
                                              alt="${sp.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                                     </a>
                                     <div class="card-body p-3">
