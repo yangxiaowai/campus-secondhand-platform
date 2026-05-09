@@ -262,7 +262,7 @@ public class ProductController {
 
     /**
      * 获取个性化推荐
-     * 技术亮点：基于用户浏览历史的个性化推荐算法
+     * 成员4：优先从Redis收件箱读取，收件箱为空时走原有推荐逻辑并回填收件箱
      */
     @RequestMapping("/recommendations")
     @ResponseBody
@@ -274,7 +274,6 @@ public class ProductController {
             result.put("success", true);
             result.put("data", recommendations);
         } else {
-            // 未登录用户返回热门商品
             List<Product> hotProducts = productService.findHotProducts(8);
             result.put("success", true);
             result.put("data", hotProducts);

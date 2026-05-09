@@ -3,6 +3,8 @@ package com.campus.service.impl;
 import com.campus.dao.ProductMapper;
 import com.campus.entity.Product;
 import com.campus.service.RecommendService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -11,15 +13,10 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * 推荐服务实现类
- * 技术亮点：
- * 1. 基于内容的推荐算法（Content-Based Filtering）
- * 2. 使用内存缓存存储浏览历史（生产环境建议使用Redis）
- * 3. LRU策略限制历史记录数量，防止内存溢出
- */
 @Service
 public class RecommendServiceImpl implements RecommendService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RecommendServiceImpl.class);
 
     @Autowired
     private ProductMapper productMapper;
@@ -27,28 +24,23 @@ public class RecommendServiceImpl implements RecommendService {
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
 
-    // 用户浏览历史缓存（userId -> 浏览的商品ID列表，按时间倒序）
-    // 技术说明：使用 ConcurrentHashMap 保证线程安全
     private static final Map<Integer, LinkedList<Integer>> browseHistoryCache = new ConcurrentHashMap<>();
-    
-    // 每个用户最多保存的浏览历史数量
+
     private static final int MAX_HISTORY_SIZE = 50;
     private static final int PROFILE_TTL_SECONDS = 12 * 60 * 60;
     private static final int HISTORY_TTL_SECONDS = 24 * 60 * 60;
     private static final int PROFILE_LOCK_TTL_SECONDS = 5;
+    private static final int INBOX_TTL_SECONDS = 24 * 60 * 60;
 
     @Override
     public List<Product> getSimilarProducts(Integer productId, Integer limit) {
-        // 获取当前商品信息
         Product currentProduct = productMapper.findById(productId);
         if (currentProduct == null) {
             return Collections.emptyList();
         }
 
-        // 获取同分类的其他商品（排除当前商品）
         List<Product> sameCategory = productMapper.findList(null, currentProduct.getCategoryId(), 0);
-        
-        // 过滤掉当前商品，并按浏览量排序
+
         List<Product> result = new ArrayList<>();
         for (Product p : sameCategory) {
             if (!p.getId().equals(productId)) {
@@ -56,10 +48,8 @@ public class RecommendServiceImpl implements RecommendService {
             }
         }
 
-        // 按浏览量降序排序
         result.sort((a, b) -> b.getViewCount() - a.getViewCount());
 
-        // 限制返回数量
         if (result.size() > limit) {
             result = result.subList(0, limit);
         }
@@ -69,19 +59,20 @@ public class RecommendServiceImpl implements RecommendService {
 
     @Override
     public List<Product> getPersonalizedRecommendations(Integer userId, Integer limit) {
-        // 缓存穿透防护：先查 Redis 画像，空则自动重建
+        List<Product> inboxProducts = readInbox(userId, limit);
+        if (!inboxProducts.isEmpty()) {
+            return inboxProducts;
+        }
+
         Map<Integer, Integer> categoryCount = loadOrRebuildCategoryProfile(userId);
         LinkedList<Integer> history = loadHistory(userId);
         if (history == null || history.isEmpty()) {
-            // 无浏览历史，返回热门商品
             return productMapper.findHotProducts(limit);
         }
 
-        // 按浏览频次排序，取用户最感兴趣的分类
         List<Map.Entry<Integer, Integer>> sortedCategories = new ArrayList<>(categoryCount.entrySet());
         sortedCategories.sort((a, b) -> b.getValue() - a.getValue());
 
-        // 从用户感兴趣的分类中获取推荐商品
         Set<Integer> historySet = new HashSet<>(history);
         List<Product> recommendations = new ArrayList<>();
 
@@ -90,7 +81,6 @@ public class RecommendServiceImpl implements RecommendService {
 
             List<Product> categoryProducts = productMapper.findList(null, entry.getKey(), 0);
             for (Product p : categoryProducts) {
-                // 排除已浏览过的商品
                 if (!historySet.contains(p.getId())) {
                     recommendations.add(p);
                     if (recommendations.size() >= limit) break;
@@ -98,7 +88,6 @@ public class RecommendServiceImpl implements RecommendService {
             }
         }
 
-        // 如果推荐不足，用热门商品补充
         if (recommendations.size() < limit) {
             List<Product> hotProducts = productMapper.findHotProducts(limit);
             for (Product p : hotProducts) {
@@ -109,6 +98,10 @@ public class RecommendServiceImpl implements RecommendService {
             }
         }
 
+        for (Product p : recommendations) {
+            pushToInbox(userId, p.getId());
+        }
+
         return recommendations;
     }
 
@@ -116,7 +109,6 @@ public class RecommendServiceImpl implements RecommendService {
     public void recordBrowseHistory(Integer userId, Integer productId) {
         if (userId == null || productId == null) return;
 
-        // 分布式锁：避免同一用户画像并发更新冲突
         String lockKey = "lock:profile:update:" + userId;
         String lockValue = UUID.randomUUID().toString();
         if (!acquireLock(lockKey, lockValue, PROFILE_LOCK_TTL_SECONDS)) {
@@ -124,24 +116,17 @@ public class RecommendServiceImpl implements RecommendService {
         }
 
         try {
-        browseHistoryCache.compute(userId, (key, history) -> {
-            if (history == null) {
-                history = new LinkedList<>();
-            }
-
-            // 如果已存在，先移除（实现 LRU）
-            history.remove(productId);
-            
-            // 添加到头部（最新浏览）
-            history.addFirst(productId);
-
-            // 限制历史记录数量
-            while (history.size() > MAX_HISTORY_SIZE) {
-                history.removeLast();
-            }
-
-            return history;
-        });
+            browseHistoryCache.compute(userId, (key, history) -> {
+                if (history == null) {
+                    history = new LinkedList<>();
+                }
+                history.remove(productId);
+                history.addFirst(productId);
+                while (history.size() > MAX_HISTORY_SIZE) {
+                    history.removeLast();
+                }
+                return history;
+            });
             syncHistoryToRedis(userId);
             rebuildProfileCache(userId);
         } finally {
@@ -170,11 +155,81 @@ public class RecommendServiceImpl implements RecommendService {
         return result;
     }
 
-    private boolean containsProduct(List<Product> list, Integer productId) {
-        for (Product p : list) {
-            if (p.getId().equals(productId)) return true;
+    // ==================== 第一阶段：推荐收件箱 ====================
+
+    @Override
+    public void pushToInbox(Integer userId, Integer productId) {
+        if (userId == null || productId == null) return;
+        if (redisTemplate == null) {
+            logger.warn("RedisTemplate 未注入，无法写入收件箱 userId={}, productId={}", userId, productId);
+            return;
         }
-        return false;
+        String key = inboxKey(userId);
+        redisTemplate.opsForList().leftPush(key, productId);
+        redisTemplate.expire(key, INBOX_TTL_SECONDS, TimeUnit.SECONDS);
+        logger.debug("推送推荐到收件箱: userId={}, productId={}", userId, productId);
+    }
+
+    @Override
+    public List<Product> readInbox(Integer userId, Integer limit) {
+        if (userId == null) return Collections.emptyList();
+        if (redisTemplate == null) {
+            logger.warn("RedisTemplate 未注入，无法读取收件箱 userId={}", userId);
+            return Collections.emptyList();
+        }
+        String key = inboxKey(userId);
+        List<Object> productIdObjs = redisTemplate.opsForList().range(key, 0, limit - 1);
+        if (productIdObjs == null || productIdObjs.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<Product> result = new ArrayList<>();
+        Set<Integer> seen = new HashSet<>();
+        for (Object obj : productIdObjs) {
+            try {
+                Integer pid = Integer.parseInt(String.valueOf(obj));
+                if (seen.contains(pid)) continue;
+                seen.add(pid);
+                Product p = productMapper.findById(pid);
+                if (p != null) {
+                    result.add(p);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public void initTestData() {
+        if (redisTemplate == null) {
+            logger.warn("RedisTemplate 未注入，无法初始化测试数据");
+            return;
+        }
+
+        int testUserId = 1;
+        String key = inboxKey(testUserId);
+
+        if (redisTemplate.opsForList().size(key) > 0) {
+            logger.info("收件箱已有数据，跳过初始化: key={}", key);
+            return;
+        }
+
+        // 直接写入测试商品ID到Redis，模拟推荐算法的推荐结果
+        List<Integer> testProductIds = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+
+        for (Integer productId : testProductIds) {
+            redisTemplate.opsForList().leftPush(key, productId);
+        }
+        redisTemplate.expire(key, INBOX_TTL_SECONDS, TimeUnit.SECONDS);
+
+        logger.info("测试数据初始化完成: userId={}, 推送{}条测试推荐到收件箱 key={}", testUserId, testProductIds.size(), key);
+    }
+
+    // ==================== 私有方法 ====================
+
+    private String inboxKey(Integer userId) {
+        return "rec:inbox:" + userId;
     }
 
     private String profileKey(Integer userId) {
@@ -185,14 +240,17 @@ public class RecommendServiceImpl implements RecommendService {
         return "rec:history:" + userId;
     }
 
+    private boolean containsProduct(List<Product> list, Integer productId) {
+        for (Product p : list) {
+            if (p.getId().equals(productId)) return true;
+        }
+        return false;
+    }
+
     private void syncHistoryToRedis(Integer userId) {
-        if (redisTemplate == null) {
-            return;
-        }
+        if (redisTemplate == null) return;
         LinkedList<Integer> history = browseHistoryCache.get(userId);
-        if (history == null || history.isEmpty()) {
-            return;
-        }
+        if (history == null || history.isEmpty()) return;
         String key = historyKey(userId);
         redisTemplate.delete(key);
         for (Integer productId : history) {
@@ -203,16 +261,10 @@ public class RecommendServiceImpl implements RecommendService {
 
     private LinkedList<Integer> loadHistory(Integer userId) {
         LinkedList<Integer> local = browseHistoryCache.get(userId);
-        if (local != null && !local.isEmpty()) {
-            return local;
-        }
-        if (redisTemplate == null) {
-            return local;
-        }
+        if (local != null && !local.isEmpty()) return local;
+        if (redisTemplate == null) return local;
         List<Object> values = redisTemplate.opsForList().range(historyKey(userId), 0, MAX_HISTORY_SIZE - 1);
-        if (values == null || values.isEmpty()) {
-            return local;
-        }
+        if (values == null || values.isEmpty()) return local;
         LinkedList<Integer> fromRedis = new LinkedList<>();
         for (Object value : values) {
             try {
@@ -227,9 +279,7 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private Map<Integer, Integer> loadOrRebuildCategoryProfile(Integer userId) {
-        if (userId == null) {
-            return Collections.emptyMap();
-        }
+        if (userId == null) return Collections.emptyMap();
         if (redisTemplate != null) {
             Map<Object, Object> cached = redisTemplate.opsForHash().entries(profileKey(userId));
             Map<Integer, Integer> profile = convertProfile(cached);
@@ -271,9 +321,7 @@ public class RecommendServiceImpl implements RecommendService {
 
     private Map<Integer, Integer> convertProfile(Map<Object, Object> cached) {
         Map<Integer, Integer> result = new HashMap<>();
-        if (cached == null || cached.isEmpty()) {
-            return result;
-        }
+        if (cached == null || cached.isEmpty()) return result;
         for (Map.Entry<Object, Object> entry : cached.entrySet()) {
             try {
                 Integer categoryId = Integer.parseInt(String.valueOf(entry.getKey()));
@@ -286,21 +334,16 @@ public class RecommendServiceImpl implements RecommendService {
     }
 
     private boolean acquireLock(String lockKey, String lockValue, int ttlSeconds) {
-        if (redisTemplate == null) {
-            return true;
-        }
+        if (redisTemplate == null) return true;
         Boolean ok = redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, ttlSeconds, TimeUnit.SECONDS);
         return Boolean.TRUE.equals(ok);
     }
 
     private void releaseLock(String lockKey, String lockValue) {
-        if (redisTemplate == null) {
-            return;
-        }
+        if (redisTemplate == null) return;
         Object current = redisTemplate.opsForValue().get(lockKey);
         if (current != null && lockValue.equals(String.valueOf(current))) {
             redisTemplate.delete(lockKey);
         }
     }
 }
-
