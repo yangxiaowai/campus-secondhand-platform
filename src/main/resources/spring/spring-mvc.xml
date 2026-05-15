@@ -45,6 +45,7 @@
             <mvc:mapping path="/user/center"/>
             <mvc:mapping path="/user/update"/>
             <mvc:mapping path="/user/profile/**"/>
+            <mvc:mapping path="/user/inbox"/>
             <mvc:exclude-mapping path="/user/login"/>
             <mvc:exclude-mapping path="/user/register"/>
             <mvc:exclude-mapping path="/captcha/**"/>

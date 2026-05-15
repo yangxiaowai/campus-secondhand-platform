@@ -2,6 +2,7 @@ package com.campus.service.impl;
 
 import com.campus.dao.ProductMapper;
 import com.campus.entity.Product;
+import com.campus.service.MatchEngine;
 import com.campus.service.ProductService;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -22,6 +23,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired(required = false)
+    private MatchEngine matchEngine;
 
     @Override
     public PageInfo<Product> findList(String keyword, Integer categoryId, Integer pageNum, Integer pageSize) {
@@ -46,7 +50,16 @@ public class ProductServiceImpl implements ProductService {
     public boolean publish(Product product) {
         product.setStatus(0); // 在售状态
         product.setViewCount(0);
-        return productMapper.insert(product) > 0;
+        boolean ok = productMapper.insert(product) > 0;
+        if (ok && matchEngine != null && product.getId() != null) {
+            try {
+                Product persisted = productMapper.findById(product.getId());
+                matchEngine.onProductPublished(persisted != null ? persisted : product);
+            } catch (Exception ex) {
+                logger.warn("成员B-MatchEngine 处理发布事件失败 productId={}", product.getId(), ex);
+            }
+        }
+        return ok;
     }
 
     @Override

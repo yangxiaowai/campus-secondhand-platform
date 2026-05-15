@@ -4,6 +4,7 @@ import com.campus.annotation.Log;
 import com.campus.entity.Product;
 import com.campus.entity.User;
 import com.campus.service.CategoryService;
+import com.campus.service.ProductFeatureService;
 import com.campus.service.ProductService;
 import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpSession;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +48,9 @@ public class ProductController {
 
     @Autowired
     private UserProfileService userProfileService;
+
+    @Autowired
+    private ProductFeatureService productFeatureService;
 
     @Autowired
     private MinIOUtil minIOUtil;
@@ -96,17 +99,13 @@ public class ProductController {
             if (user != null) {
                 recommendService.recordBrowseHistory(user.getId(), id);
 
-                // 成员A：更新用户兴趣画像（增量更新）
-                // 注意：keywords 参数暂时传空列表，成员B实现分词后可以传入
-                // 成员B在 ProductFeatureService 中实现分词后，在这里调用：
-                // List<String> keywords = productFeatureService.extractKeywords(product.getName());
-                // userProfileService.recordBrowse(user.getId(), product.getCategoryId(),
-                //         product.getPrice().doubleValue(), keywords);
+                List<String> keywords = productFeatureService.extractKeywords(
+                        product.getName() != null ? product.getName() : "");
                 userProfileService.recordBrowse(
                         user.getId(),
                         product.getCategoryId(),
                         product.getPrice() != null ? product.getPrice().doubleValue() : null,
-                        new ArrayList<>()  // 成员B接入分词后替换为真实关键词
+                        keywords
                 );
             }
 

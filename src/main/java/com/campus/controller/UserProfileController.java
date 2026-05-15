@@ -1,19 +1,26 @@
 package com.campus.controller;
 
 import com.campus.common.Result;
+import com.campus.entity.Product;
 import com.campus.entity.User;
 import com.campus.entity.UserProfile;
+import com.campus.service.ProductService;
 import com.campus.service.UserProfileService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 用户兴趣画像控制器
@@ -38,6 +45,13 @@ public class UserProfileController {
     @Autowired
     private UserProfileService userProfileService;
 
+    @Autowired(required = false)
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private ProductService productService;
+
+    private static final String INBOX_KEY_PREFIX = "user:inbox:";
     /**
      * 获取当前登录用户的兴趣画像
      * 
@@ -153,5 +167,64 @@ public class UserProfileController {
         summary.put("purchaseCount", profile.getPurchaseCount());
 
         return Result.success(summary);
+    }
+
+    /**
+     * 成员B：推荐收件箱（Redis ZSet，按匹配度降序）
+     * 用于验收「发布后目标用户收件箱出现该商品」
+     */
+    @RequestMapping("/inbox")
+    @ResponseBody
+    public Result<List<Map<String, Object>>> getRecommendInbox(HttpSession session) {
+        User user = (User) session.getAttribute("user");
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        if (redisTemplate == null) {
+            return Result.error(503, "Redis 未配置，无法读取收件箱");
+        }
+        String inboxKey = INBOX_KEY_PREFIX + user.getId();
+        Set<ZSetOperations.TypedTuple<Object>> tuples =
+                redisTemplate.opsForZSet().reverseRangeWithScores(inboxKey, 0, 99);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (tuples != null) {
+            for (ZSetOperations.TypedTuple<Object> t : tuples) {
+                if (t.getValue() == null || t.getScore() == null) {
+                    continue;
+                }
+                Integer productId = parseProductId(t.getValue());
+                if (productId == null) {
+                    continue;
+                }
+                Product p = productService.findById(productId);
+                if (p == null || (p.getStatus() != null && p.getStatus() == 3)) {
+                    continue;
+                }
+                Map<String, Object> row = new HashMap<>();
+                row.put("productId", productId);
+                row.put("matchScore", round3(t.getScore()));
+                row.put("name", p.getName());
+                row.put("price", p.getPrice());
+                row.put("categoryId", p.getCategoryId());
+                row.put("imageUrl", p.getImageUrl());
+                rows.add(row);
+            }
+        }
+        return Result.success("推荐收件箱", rows);
+    }
+
+    private static Integer parseProductId(Object raw) {
+        if (raw instanceof Integer) {
+            return (Integer) raw;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(raw));
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static double round3(double v) {
+        return Math.round(v * 1000.0) / 1000.0;
     }
 }
