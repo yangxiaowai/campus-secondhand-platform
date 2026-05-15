@@ -1,0 +1,82 @@
+# 成员6·第一阶段：一键启动 MySQL + Redis + MinIO + 两个 Tomcat（8080 / 8081）
+# 验收：docker compose up -d --build 后访问两个端口；8080 登录后 8081 同账号应仍登录（Redis Session）
+# 不设 container_name，由 Compose 按项目名生成容器名，避免与其它栈或残留容器重名冲突
+
+name: campus-secondhand
+
+services:
+  mysql:
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
+    environment:
+      MYSQL_ROOT_PASSWORD: campus_root
+      MYSQL_DATABASE: secondhand_market
+      TZ: Asia/Shanghai
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    ports:
+      - "3307:3306"
+    volumes:
+      - campus_mysql_data:/var/lib/mysql
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pcampus_root"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 25s
+
+  redis:
+    image: redis:7-alpine
+    # 映射到本机 6380，避免与本机已占用的 6379（如本机 Redis）冲突；容器内仍为 6379，应用用服务名 redis 连接不变
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - campus_minio_data:/data
+
+  tomcat1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: campus-secondhand:stage1
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    volumes:
+      - campus_upload_data:/data/upload
+
+  tomcat2:
+    image: campus-secondhand:stage1
+    depends_on:
+      tomcat1:
+        condition: service_started
+    ports:
+      - "8081:8080"
+    volumes:
+      - campus_upload_data:/data/upload
+
+volumes:
+  campus_mysql_data:
+  campus_minio_data:
+  campus_upload_data:

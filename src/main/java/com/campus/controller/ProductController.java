@@ -6,8 +6,10 @@ import com.campus.entity.User;
 import com.campus.service.CategoryService;
 import com.campus.service.ProductService;
 import com.campus.service.RecommendService;
+import com.campus.service.UserProfileService;
 import com.campus.util.FileUploadUtil;
 import com.campus.util.MinIOUtil;
+import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpSession;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,9 @@ public class ProductController {
 
     @Autowired
     private RecommendService recommendService;
+
+    @Autowired
+    private UserProfileService userProfileService;
 
     @Autowired
     private MinIOUtil minIOUtil;
@@ -72,8 +78,11 @@ public class ProductController {
 
     /**
      * 商品详情页
-     * 技术亮点：记录浏览历史 + 相似商品推荐
+     * 技术亮点：记录浏览历史 + 相似商品推荐 + 用户画像实时更新
      * 优化：只查询一次数据库，increaseViewCount 内部通过 SQL 自增，无需重新查询
+     * 
+     * 成员A：用户浏览商品时触发画像增量更新
+     * 成员B：后续可通过 UserProfileService 获取画像数据进行匹配
      */
     @RequestMapping("/detail")
     public String detail(Integer id, Model model, HttpSession session) {
@@ -86,6 +95,19 @@ public class ProductController {
             User user = (User) session.getAttribute("user");
             if (user != null) {
                 recommendService.recordBrowseHistory(user.getId(), id);
+
+                // 成员A：更新用户兴趣画像（增量更新）
+                // 注意：keywords 参数暂时传空列表，成员B实现分词后可以传入
+                // 成员B在 ProductFeatureService 中实现分词后，在这里调用：
+                // List<String> keywords = productFeatureService.extractKeywords(product.getName());
+                // userProfileService.recordBrowse(user.getId(), product.getCategoryId(),
+                //         product.getPrice().doubleValue(), keywords);
+                userProfileService.recordBrowse(
+                        user.getId(),
+                        product.getCategoryId(),
+                        product.getPrice() != null ? product.getPrice().doubleValue() : null,
+                        new ArrayList<>()  // 成员B接入分词后替换为真实关键词
+                );
             }
 
             // 获取相似商品推荐

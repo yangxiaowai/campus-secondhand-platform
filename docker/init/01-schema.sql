@@ -1,34 +1,29 @@
--- 校园二手交易平台数据库表结构
-
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS secondhand_market DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
+-- 首次初始化（docker-compose 中 MYSQL_DATABASE=secondhand_market 已建库）
 USE secondhand_market;
+-- 保证后续 INSERT 中文按 utf8mb4 写入（避免 init 会话默认 latin1 导致入库乱码）
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
 
--- 用户表
-CREATE TABLE t_user (
+CREATE TABLE IF NOT EXISTS t_user (
     id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-    password VARCHAR(100) NOT NULL COMMENT '密码(MD5加密)',
-    nickname VARCHAR(50) COMMENT '昵称(可选,默认使用用户名)',
+    password VARCHAR(100) NOT NULL COMMENT '密码（MD5加密）',
+    nickname VARCHAR(50) COMMENT '昵称（可选，默认使用用户名）',
     phone VARCHAR(20) COMMENT '手机号',
     email VARCHAR(100) COMMENT '邮箱',
-    role INT DEFAULT 1 COMMENT '角色:1-普通用户,2-管理员',
-    status INT DEFAULT 1 COMMENT '状态:1-正常,0-冻结',
+    role INT DEFAULT 1 COMMENT '角色：1-普通用户，2-管理员',
+    status INT DEFAULT 1 COMMENT '状态：1-正常，0-冻结',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     INDEX idx_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
-
--- 分类表
-CREATE TABLE t_category (
+CREATE TABLE IF NOT EXISTS t_category (
     id INT PRIMARY KEY AUTO_INCREMENT,
     category_name VARCHAR(50) NOT NULL UNIQUE COMMENT '分类名称',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品分类表';
 
--- 商品表
-CREATE TABLE t_product (
+CREATE TABLE IF NOT EXISTS t_product (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(200) NOT NULL COMMENT '商品名称',
     price DECIMAL(10,2) NOT NULL COMMENT '价格',
@@ -48,8 +43,7 @@ CREATE TABLE t_product (
     INDEX idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表';
 
--- 订单表
-CREATE TABLE t_order (
+CREATE TABLE IF NOT EXISTS t_order (
     id INT PRIMARY KEY AUTO_INCREMENT,
     order_no VARCHAR(50) NOT NULL UNIQUE COMMENT '订单号（UUID）',
     user_id INT NOT NULL COMMENT '买家ID',
@@ -64,7 +58,6 @@ CREATE TABLE t_order (
     INDEX idx_order_no (order_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
 
--- 插入初始分类数据
 INSERT INTO t_category (category_name) VALUES
 ('闲置书籍'),
 ('数码产品'),
@@ -73,22 +66,5 @@ INSERT INTO t_category (category_name) VALUES
 ('运动健身'),
 ('其他');
 
--- 用户兴趣画像表（成员A：用户兴趣画像系统）
--- 存储用户的多维兴趣画像数据，以 JSON 格式持久化
--- 日常读写走 Redis，MySQL 作为持久化备份
-CREATE TABLE t_user_profile (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL UNIQUE COMMENT '用户ID',
-    profile_data JSON COMMENT '画像数据（JSON格式）：包含分类权重、价格区间、关键词等',
-    version BIGINT DEFAULT 0 COMMENT '版本号（乐观锁）',
-    updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    FOREIGN KEY (user_id) REFERENCES t_user(id),
-    INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户兴趣画像表';
-
--- 插入管理员账号（密码：admin123，MD5加密后）
 INSERT INTO t_user (username, password, nickname, role) VALUES
 ('admin', '0192023a7bbd73250516f069df18b500', '系统管理员', 2);
-
-
-

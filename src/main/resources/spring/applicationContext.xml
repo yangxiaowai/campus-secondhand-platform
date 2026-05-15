@@ -13,8 +13,8 @@
        http://www.springframework.org/schema/aop
        http://www.springframework.org/schema/aop/spring-aop.xsd">
 
-    <!-- 扫描Service组件、切面、配置类和工具类 -->
-    <context:component-scan base-package="com.campus.service,com.campus.aspect,com.campus.config,com.campus.util"/>
+    <!-- 扫描 Service、切面、工具类；config 须在根容器（与 util 同层装配 MinIOUtil 等） -->
+    <context:component-scan base-package="com.campus.service,com.campus.aspect,com.campus.util,com.campus.config"/>
 
     <!-- 开启 AOP 注解支持 -->
     <aop:aspectj-autoproxy proxy-target-class="true"/>

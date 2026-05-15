@@ -100,7 +100,7 @@ src/
 - JDK 1.8+
 - Maven 3.6+
 - MySQL 5.7+ 或 8.0+
-- Tomcat 8.5+
+- Tomcat 8.5+（或使用上文 Docker 中的 Tomcat 9 镜像）
 
 ### 2. 数据库配置
 1. 创建数据库：
@@ -151,6 +151,10 @@ mvn clean package
 6. **分页查询**：使用PageHelper实现高效的分页功能
 
 ## 开发说明
+
+### Git 分支与合并协调（成员6）
+
+第一阶段 Docker 与整合相关改动建议使用分支 **`stage1-docker`**（见《团队分工方案》「Git协作规范」）。各成员按模块分支开发，合并到 `dev` 前在本地执行 `mvn clean package` 与必要的联调；与数据库脚本、Compose 端口冲突时以 **`docker-compose.yml` / `docker/init`** 与 README 本节为准。
 
 ### 代码规范
 - 使用Lombok简化实体类代码
