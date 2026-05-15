@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.campus.dao.OrderMapper">
 
-    <resultMap id="orderMap" type="Order">
+    <resultMap id="orderMap" type="com.campus.entity.Order">
         <id property="id" column="id"/>
         <result property="orderNo" column="order_no"/>
         <result property="userId" column="user_id"/>
@@ -11,11 +11,11 @@
         <result property="totalPrice" column="total_price"/>
         <result property="status" column="status"/>
         <result property="createTime" column="create_time"/>
-        <association property="buyer" javaType="User">
+        <association property="buyer" javaType="com.campus.entity.User">
             <id property="id" column="user_id"/>
             <result property="nickname" column="buyer_nickname"/>
         </association>
-        <association property="product" javaType="Product">
+        <association property="product" javaType="com.campus.entity.Product">
             <id property="id" column="product_id"/>
             <result property="name" column="product_name"/>
             <result property="imageUrl" column="product_image"/>

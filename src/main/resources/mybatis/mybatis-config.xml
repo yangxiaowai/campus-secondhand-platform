@@ -15,7 +15,13 @@
     </settings>
 
     <typeAliases>
-        <package name="com.campus.entity"/>
+        <!-- 逐个注册实体类，避免 Tomcat 9 下扫描包路径时的规范化问题 -->
+        <typeAlias type="com.campus.entity.User" alias="User"/>
+        <typeAlias type="com.campus.entity.Product" alias="Product"/>
+        <typeAlias type="com.campus.entity.Order" alias="Order"/>
+        <typeAlias type="com.campus.entity.Category" alias="Category"/>
+        <typeAlias type="com.campus.entity.UserProfile" alias="UserProfile"/>
+        <typeAlias type="com.campus.entity.OperationLog" alias="OperationLog"/>
     </typeAliases>
 
     <plugins>
