@@ -6,10 +6,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import redis.clients.jedis.JedisPoolConfig;
+
+import java.time.Duration;
 
 /**
  * Redis 配置类
@@ -43,8 +47,17 @@ public class RedisConfig {
         if (password != null && !password.isEmpty()) {
             config.setPassword(password);
         }
-        JedisConnectionFactory factory = new JedisConnectionFactory(config);
-        return factory;
+
+        JedisPoolConfig poolConfig = new JedisPoolConfig();
+        JedisClientConfiguration clientConfig = JedisClientConfiguration.builder()
+                .usePooling()
+                .poolConfig(poolConfig)
+                .and()
+                .readTimeout(Duration.ofMillis(timeout))
+                .connectTimeout(Duration.ofMillis(timeout))
+                .build();
+
+        return new JedisConnectionFactory(config, clientConfig);
     }
 
     @Bean
@@ -52,17 +65,12 @@ public class RedisConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
 
-        // 使用 Jackson2JsonRedisSerializer 序列化 value
         Jackson2JsonRedisSerializer<Object> jacksonSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
 
-        // key 使用 String 序列化
         template.setKeySerializer(stringSerializer);
-        // value 使用 JSON 序列化
         template.setValueSerializer(jacksonSerializer);
-        // hash 的 key 也使用 String 序列化
         template.setHashKeySerializer(stringSerializer);
-        // hash 的 value 使用 JSON 序列化
         template.setHashValueSerializer(jacksonSerializer);
 
         template.afterPropertiesSet();

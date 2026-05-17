@@ -2,6 +2,8 @@ package com.campus.controller;
 
 import com.campus.config.MinIOConfig;
 import com.campus.entity.Product;
+import com.campus.service.DegradeService;
+import com.campus.service.MetricsService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
 import io.minio.ListObjectsArgs;
@@ -49,6 +51,12 @@ public class TestController {
 
     @Autowired(required = false)
     private RecommendService recommendService;
+
+    @Autowired(required = false)
+    private DegradeService degradeService;
+
+    @Autowired(required = false)
+    private MetricsService metricsService;
 
     /**
      * 测试 Redis 连接
@@ -195,10 +203,54 @@ public class TestController {
             return result;
         }
         int safeLimit = (limit == null || limit <= 0) ? 5 : limit;
-        List<Product> data = recommendService.getPersonalizedRecommendations(userId, safeLimit);
+        List<Product> data;
+        if (degradeService != null) {
+            data = degradeService.recommendForUser(userId, safeLimit);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+        } else {
+            data = recommendService.getPersonalizedRecommendations(userId, safeLimit);
+        }
         result.put("success", true);
         result.put("count", data.size());
         result.put("data", data);
+        return result;
+    }
+
+    /**
+     * 成员D：降级推荐验收（含 L1/L2）
+     */
+    @GetMapping("/degrade/recommend")
+    @ResponseBody
+    public Map<String, Object> testDegradeRecommend(Integer userId, Integer limit) {
+        Map<String, Object> result = new HashMap<>();
+        if (degradeService == null) {
+            result.put("success", false);
+            result.put("message", "DegradeService 未注入");
+            return result;
+        }
+        int safeLimit = (limit == null || limit <= 0) ? 8 : limit;
+        List<Product> data = degradeService.recommendForUser(userId, safeLimit);
+        result.put("success", true);
+        result.put("redisAvailable", degradeService.isRedisAvailable());
+        result.put("count", data.size());
+        result.put("data", data);
+        return result;
+    }
+
+    /**
+     * 成员D：指标快照
+     */
+    @GetMapping("/degrade/metrics")
+    @ResponseBody
+    public Map<String, Object> testDegradeMetrics() {
+        Map<String, Object> result = new HashMap<>();
+        if (metricsService == null) {
+            result.put("success", false);
+            result.put("message", "MetricsService 未注入");
+            return result;
+        }
+        result.put("success", true);
+        result.putAll(metricsService.snapshot());
         return result;
     }
 

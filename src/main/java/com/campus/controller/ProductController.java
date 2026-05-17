@@ -6,6 +6,7 @@ import com.campus.entity.User;
 import com.campus.service.CategoryService;
 import com.campus.service.ProductFeatureService;
 import com.campus.service.ProductService;
+import com.campus.service.DegradeService;
 import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
 import com.campus.util.FileUploadUtil;
@@ -45,6 +46,9 @@ public class ProductController {
 
     @Autowired
     private RecommendService recommendService;
+
+    @Autowired
+    private DegradeService degradeService;
 
     @Autowired
     private UserProfileService userProfileService;
@@ -289,16 +293,26 @@ public class ProductController {
     @ResponseBody
     public Map<String, Object> getRecommendations(HttpSession session) {
         Map<String, Object> result = new HashMap<>();
-        User user = (User) session.getAttribute("user");
+        User user = null;
+        boolean sessionDegraded = false;
+        try {
+            user = (User) session.getAttribute("user");
+        } catch (Exception e) {
+            sessionDegraded = true;
+        }
         if (user != null) {
-            List<Product> recommendations = recommendService.getPersonalizedRecommendations(user.getId(), 8);
+            List<Product> recommendations = degradeService.recommendForUser(user.getId(), 8);
             result.put("success", true);
             result.put("data", recommendations);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
         } else {
-            // 未登录用户返回热门商品
-            List<Product> hotProducts = productService.findHotProducts(8);
+            List<Product> hotProducts = degradeService.recommendForUser(null, 8);
             result.put("success", true);
             result.put("data", hotProducts);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+            if (sessionDegraded) {
+                result.put("sessionDegraded", true);
+            }
         }
         return result;
     }

@@ -3,6 +3,8 @@ package com.campus.exception;
 import com.campus.common.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -47,6 +49,16 @@ public class GlobalExceptionHandler {
     public Result<Object> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
         logger.warn("参数异常 [{}]: {}", request.getRequestURI(), e.getMessage());
         return Result.error(400, e.getMessage());
+    }
+
+    /**
+     * Redis 连接失败（推荐降级场景应在上层捕获，此处作兜底提示）
+     */
+    @ExceptionHandler({RedisConnectionFailureException.class, DataAccessException.class})
+    @ResponseBody
+    public Result<Object> handleRedisException(Exception e, HttpServletRequest request) {
+        logger.warn("Redis 异常 [{}]: {}", request.getRequestURI(), e.getMessage());
+        return Result.error(503, "Redis 暂不可用，推荐服务已降级，请稍后重试或使用 /test/degrade/recommend 验收");
     }
 
     /**

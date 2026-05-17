@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>推荐系统监控看板 - 成员D</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/4.6.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f4f6f9; }
+        .metric-card { border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+        .metric-value { font-size: 1.75rem; font-weight: 700; color: #2c3e50; }
+        .metric-label { color: #6c757d; font-size: .9rem; }
+        #updatedAt { font-size: .85rem; color: #888; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <h3 class="mb-1">推荐系统监控看板</h3>
+    <p class="text-muted mb-3">成员D：降级容错 + 指标采集（每 3 秒刷新）</p>
+    <p id="updatedAt">加载中…</p>
+
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                
+                <div class="metric-label">匹配次数</div>
+                <div class="metric-value" id="matchCount">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">匹配平均耗时 (ms)</div>
+                <div class="metric-value" id="matchAvgMs">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">推送总量</div>
+                <div class="metric-value" id="pushTotal">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">推荐请求次数</div>
+                <div class="metric-value" id="recommendCount">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">推荐平均耗时 (ms)</div>
+                <div class="metric-value" id="recommendAvgMs">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">缓存命中率</div>
+                <div class="metric-value" id="cacheHitRate">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">L1 降级次数 (Redis 不可用)</div>
+                <div class="metric-value text-warning" id="degradeL1">-</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card metric-card p-3">
+                <div class="metric-label">L2 降级次数 (冷启动)</div>
+                <div class="metric-value text-info" id="degradeL2">-</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary mt-3">
+        <strong>验收说明：</strong>
+        <ul class="mb-0">
+            <li>停掉 Redis 后访问推荐接口，degradeL1 会增加，推荐仍有结果。</li>
+            <li>新注册用户（无画像）触发 degradeL2，返回热门商品。</li>
+            <li>控制台每 10 秒输出 [成员D-Metrics] 日志。</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    function pct(v) {
+        if (v == null) return '-';
+        return (v * 100).toFixed(1) + '%';
+    }
+    function loadMetrics() {
+        fetch('/monitor/metrics')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                document.getElementById('matchCount').textContent = data.matchCount;
+                document.getElementById('matchAvgMs').textContent = data.matchAvgMs;
+                document.getElementById('pushTotal').textContent = data.pushTotal;
+                document.getElementById('recommendCount').textContent = data.recommendCount;
+                document.getElementById('recommendAvgMs').textContent = data.recommendAvgMs;
+                document.getElementById('cacheHitRate').textContent = pct(data.cacheHitRate);
+                document.getElementById('degradeL1').textContent = data.degradeL1;
+                document.getElementById('degradeL2').textContent = data.degradeL2;
+                var d = new Date(data.timestamp);
+                document.getElementById('updatedAt').textContent = '最近更新：' + d.toLocaleString();
+            })
+            .catch(function(e) {
+                document.getElementById('updatedAt').textContent = '加载失败：' + e;
+            });
+    }
+    loadMetrics();
+    setInterval(loadMetrics, 3000);
+</script>
+</body>
+</html>

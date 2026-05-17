@@ -5,6 +5,7 @@ import com.campus.entity.Product;
 import com.campus.entity.User;
 import com.campus.service.MatchEngine;
 import com.campus.service.MatchService;
+import com.campus.service.MetricsService;
 import com.campus.service.ProductFeatureService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,9 @@ public class MatchEngineImpl implements MatchEngine {
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Autowired
+    private MetricsService metricsService;
+
     @Override
     public void onProductPublished(Product product) {
         if (product == null || product.getId() == null) {
@@ -70,6 +74,7 @@ public class MatchEngineImpl implements MatchEngine {
             return;
         }
 
+        long matchStart = System.currentTimeMillis();
         Integer sellerId = product.getUserId();
         int pushed = 0;
         for (User u : users) {
@@ -96,6 +101,7 @@ public class MatchEngineImpl implements MatchEngine {
             pushed++;
             log.debug("[成员B-收件箱] userId={}, productId={}, matchScore={}", u.getId(), product.getId(), score);
         }
+        metricsService.recordMatch(System.currentTimeMillis() - matchStart, pushed);
         log.info("[成员B-MatchEngine] 发布匹配完成 productId={}，写入收件箱用户数={}", product.getId(), pushed);
     }
 }
