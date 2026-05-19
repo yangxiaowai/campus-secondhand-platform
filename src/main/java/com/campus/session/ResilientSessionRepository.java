@@ -8,6 +8,9 @@ import org.springframework.session.MapSession;
 import redis.clients.jedis.exceptions.JedisConnectionException;
 import redis.clients.jedis.exceptions.JedisException;
 import org.springframework.session.MapSessionRepository;
+
+import java.net.ConnectException;
+import java.net.SocketException;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
 
@@ -45,10 +48,14 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
 
     @Override
     public void save(Session session) {
+        if (!isRedisBackedSession(session)) {
+            fallbackRepository.save(toMapSession(session));
+            return;
+        }
         try {
             delegate.save(session);
         } catch (Throwable e) {
-            if (isRedisFailure(e)) {
+            if (isRedisFailure(e) || isSessionTypeMismatch(e)) {
                 log.warn("[Session] Redis 保存失败，写入内存 Session: {}", rootMessage(e));
                 fallbackRepository.save(toMapSession(session));
                 return;
@@ -93,20 +100,35 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
         return new MapSession(session);
     }
 
+    /** 仅 RedisSession 可写入 Redis；降级产生的 MapSession 只走内存库 */
+    private static boolean isRedisBackedSession(Session session) {
+        return session != null && "RedisSession".equals(session.getClass().getSimpleName());
+    }
+
+    private static boolean isSessionTypeMismatch(Throwable e) {
+        return e instanceof ClassCastException
+                && e.getMessage() != null
+                && e.getMessage().contains("RedisSession");
+    }
+
     private static boolean isRedisFailure(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             if (t instanceof RedisConnectionFailureException
                     || t instanceof DataAccessException
                     || t instanceof JedisConnectionException
-                    || t instanceof JedisException) {
+                    || t instanceof JedisException
+                    || t instanceof SocketException
+                    || t instanceof ConnectException) {
                 return true;
             }
             String msg = t.getMessage();
             if (msg != null && (msg.contains("Unexpected end of stream")
                     || msg.contains("Could not get a resource from the pool")
                     || msg.contains("Cannot get Jedis connection")
+                    || msg.contains("Connection refused")
                     || msg.contains("Connection reset")
-                    || msg.contains("Broken pipe"))) {
+                    || msg.contains("Broken pipe")
+                    || msg.contains("Failed to create socket"))) {
                 return true;
             }
         }

@@ -1,42 +1,36 @@
 package com.campus.config;
 
 import com.campus.session.ResilientSessionRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
+import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
 import org.springframework.session.data.redis.RedisIndexedSessionRepository;
 import org.springframework.session.data.redis.config.ConfigureRedisAction;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
 import org.springframework.session.web.http.CookieSerializer;
 import org.springframework.session.web.http.DefaultCookieSerializer;
+import org.springframework.session.web.http.SessionRepositoryFilter;
 
 /**
- * 分布式 Session 配置
- * 成员1：使用 Redis 存储 Session，实现多实例间登录状态共享
- * 成员D：启动期 NO_OP + 延迟 MessageListener；运行期 ResilientSessionRepository 降级
+ * 分布式 Session：Redis 存储 + 运行期内存降级；显式注册 Filter 确保走 resilientSessionRepository。
  */
 @Configuration
 @EnableRedisHttpSession(maxInactiveIntervalInSeconds = 1800)
 public class SessionConfig {
 
-    /**
-     * 禁止启动时执行 Redis CONFIG NOTIFY，避免 Redis 未启动导致上下文加载失败
-     */
     @Bean
     public static ConfigureRedisAction configureRedisAction() {
         return ConfigureRedisAction.NO_OP;
     }
 
-    /**
-     * 覆盖 Spring Session 默认监听容器（bean 名必须为 springSessionRedisMessageListenerContainer）
-     */
     @Bean(name = "springSessionRedisMessageListenerContainer")
     @Primary
     @Order(0)
@@ -47,7 +41,6 @@ public class SessionConfig {
         return container;
     }
 
-    /** Spring Session 内部组件按类型注入，须单独注册 */
     @Bean
     @SuppressWarnings("unchecked")
     public RedisIndexedSessionRepository redisIndexedSessionRepository(
@@ -59,11 +52,19 @@ public class SessionConfig {
         return repository;
     }
 
-    /** Filter 使用此 Bean（带 Redis 失败降级），勿直接注入 RedisIndexedSessionRepository */
     @Bean(name = "sessionRepository")
-    @Primary
-    public SessionRepository<?> sessionRepository(RedisIndexedSessionRepository redisIndexedSessionRepository) {
+    public SessionRepository<? extends Session> resilientSessionRepository(
+            RedisIndexedSessionRepository redisIndexedSessionRepository) {
         return new ResilientSessionRepository(redisIndexedSessionRepository);
+    }
+
+    /**
+     * 显式绑定降级后的 sessionRepository，避免 Filter 注入到未包装的 RedisIndexedSessionRepository。
+     */
+    @Bean
+    public SessionRepositoryFilter<? extends Session> springSessionRepositoryFilter(
+            @Qualifier("sessionRepository") SessionRepository<? extends Session> sessionRepository) {
+        return new SessionRepositoryFilter<>(sessionRepository);
     }
 
     @Bean
