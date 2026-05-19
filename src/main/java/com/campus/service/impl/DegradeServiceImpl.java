@@ -49,11 +49,26 @@ public class DegradeServiceImpl implements DegradeService {
     @Autowired(required = false)
     private InboxService inboxService;
 
+    /** 压测时避免每次推荐都 PING，减轻业务连接池压力 */
+    private static final long REDIS_CHECK_INTERVAL_MS = 2000L;
+    private volatile long lastRedisCheckMs;
+    private volatile boolean lastRedisAvailable;
+
     @Override
     public boolean isRedisAvailable() {
         if (redisTemplate == null) {
             return false;
         }
+        long now = System.currentTimeMillis();
+        if (now - lastRedisCheckMs < REDIS_CHECK_INTERVAL_MS) {
+            return lastRedisAvailable;
+        }
+        lastRedisAvailable = pingRedis();
+        lastRedisCheckMs = now;
+        return lastRedisAvailable;
+    }
+
+    private boolean pingRedis() {
         try {
             return Boolean.TRUE.equals(redisTemplate.execute((RedisCallback<Boolean>) connection -> {
                 String pong = connection.ping();

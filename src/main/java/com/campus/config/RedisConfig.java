@@ -3,6 +3,7 @@ package com.campus.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -16,8 +17,7 @@ import redis.clients.jedis.JedisPoolConfig;
 import java.time.Duration;
 
 /**
- * Redis 配置类
- * 成员1：配置 Redis 连接和模板，为分布式 Session 和后续推荐系统提供基础
+ * Redis 配置：业务与 Session 使用独立连接池，避免压测时互相抢连接导致 500。
  */
 @Configuration
 @PropertySource("classpath:redis-config.properties")
@@ -38,20 +38,54 @@ public class RedisConfig {
     @Value("${redis.timeout}")
     private int timeout;
 
-    @Value("${redis.pool.maxTotal:400}")
+    @Value("${redis.pool.maxTotal:600}")
     private int poolMaxTotal;
 
-    @Value("${redis.pool.maxIdle:50}")
+    @Value("${redis.pool.maxIdle:150}")
     private int poolMaxIdle;
 
-    @Value("${redis.pool.minIdle:10}")
+    @Value("${redis.pool.minIdle:50}")
     private int poolMinIdle;
 
-    @Value("${redis.pool.maxWaitMillis:3000}")
+    @Value("${redis.pool.maxWaitMillis:30000}")
     private long poolMaxWaitMillis;
 
+    @Value("${redis.session.pool.maxTotal:400}")
+    private int sessionPoolMaxTotal;
+
+    @Value("${redis.session.pool.maxIdle:150}")
+    private int sessionPoolMaxIdle;
+
+    @Value("${redis.session.pool.minIdle:80}")
+    private int sessionPoolMinIdle;
+
+    @Value("${redis.session.pool.maxWaitMillis:30000}")
+    private long sessionPoolMaxWaitMillis;
+
     @Bean
+    @Primary
     public RedisConnectionFactory redisConnectionFactory() {
+        return createFactory(poolMaxTotal, poolMaxIdle, poolMinIdle, poolMaxWaitMillis);
+    }
+
+    @Bean(name = "sessionRedisConnectionFactory")
+    public RedisConnectionFactory sessionRedisConnectionFactory() {
+        return createFactory(sessionPoolMaxTotal, sessionPoolMaxIdle, sessionPoolMinIdle, sessionPoolMaxWaitMillis);
+    }
+
+    @Bean(name = "sessionRedisTemplate")
+    public RedisTemplate<String, Object> sessionRedisTemplate(
+            RedisConnectionFactory sessionRedisConnectionFactory) {
+        return buildRedisTemplate(sessionRedisConnectionFactory);
+    }
+
+    @Bean
+    @Primary
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
+        return buildRedisTemplate(redisConnectionFactory);
+    }
+
+    private JedisConnectionFactory createFactory(int maxTotal, int maxIdle, int minIdle, long maxWaitMillis) {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(host);
         config.setPort(port);
@@ -61,12 +95,14 @@ public class RedisConfig {
         }
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(poolMaxTotal);
-        poolConfig.setMaxIdle(poolMaxIdle);
-        poolConfig.setMinIdle(poolMinIdle);
-        poolConfig.setMaxWaitMillis(poolMaxWaitMillis);
+        poolConfig.setMaxTotal(maxTotal);
+        poolConfig.setMaxIdle(maxIdle);
+        poolConfig.setMinIdle(minIdle);
+        poolConfig.setMaxWaitMillis(maxWaitMillis);
         poolConfig.setBlockWhenExhausted(true);
-        poolConfig.setTestOnBorrow(true);
+        // fairness=true 在高并发下公平锁会放大等待，压测更易池耗尽
+        poolConfig.setFairness(false);
+        poolConfig.setTestOnBorrow(false);
         poolConfig.setTestWhileIdle(true);
         poolConfig.setTimeBetweenEvictionRunsMillis(30_000);
         poolConfig.setMinEvictableIdleTimeMillis(60_000);
@@ -85,8 +121,7 @@ public class RedisConfig {
         return factory;
     }
 
-    @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory factory) {
+    private static RedisTemplate<String, Object> buildRedisTemplate(RedisConnectionFactory factory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(factory);
 

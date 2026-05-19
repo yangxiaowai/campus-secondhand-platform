@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
@@ -40,15 +41,17 @@ public class SessionConfig {
     @Primary
     @Order(0)
     RedisMessageListenerContainer springSessionRedisMessageListenerContainer(
-            RedisConnectionFactory connectionFactory) {
+            @Qualifier("sessionRedisConnectionFactory") RedisConnectionFactory connectionFactory) {
         LazyRedisMessageListenerContainer container = new LazyRedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         return container;
     }
 
+    /** Spring Session 内部组件按类型注入，须单独注册 */
     @Bean
     @SuppressWarnings("unchecked")
-    public RedisIndexedSessionRepository redisIndexedSessionRepository(RedisTemplate<String, Object> redisTemplate) {
+    public RedisIndexedSessionRepository redisIndexedSessionRepository(
+            @Qualifier("sessionRedisTemplate") RedisTemplate<String, Object> redisTemplate) {
         RedisOperations<Object, Object> sessionRedis =
                 (RedisOperations<Object, Object>) (RedisOperations<?, ?>) redisTemplate;
         RedisIndexedSessionRepository repository = new RedisIndexedSessionRepository(sessionRedis);
@@ -56,9 +59,7 @@ public class SessionConfig {
         return repository;
     }
 
-    /**
-     * 覆盖 Spring Session 默认 sessionRepository，Filter 使用带降级的包装实现。
-     */
+    /** Filter 使用此 Bean（带 Redis 失败降级），勿直接注入 RedisIndexedSessionRepository */
     @Bean(name = "sessionRepository")
     @Primary
     public SessionRepository<?> sessionRepository(RedisIndexedSessionRepository redisIndexedSessionRepository) {

@@ -33,12 +33,13 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
     public Session createSession() {
         try {
             return delegate.createSession();
-        } catch (Exception e) {
+        } catch (Throwable e) {
             if (isRedisFailure(e)) {
-                log.warn("[Session] Redis 不可用，使用内存 Session: {}", e.getMessage());
+                log.warn("[Session] Redis 不可用，使用内存 Session: {}", rootMessage(e));
                 return fallbackRepository.createSession();
             }
-            throw e;
+            throwAsRuntime(e);
+            return null;
         }
     }
 
@@ -46,13 +47,13 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
     public void save(Session session) {
         try {
             delegate.save(session);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             if (isRedisFailure(e)) {
-                log.warn("[Session] Redis 保存失败，写入内存 Session: {}", e.getMessage());
+                log.warn("[Session] Redis 保存失败，写入内存 Session: {}", rootMessage(e));
                 fallbackRepository.save(toMapSession(session));
                 return;
             }
-            throw e;
+            throwAsRuntime(e);
         }
     }
 
@@ -63,11 +64,11 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
             if (session != null) {
                 return session;
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             if (!isRedisFailure(e)) {
-                throw e;
+                throwAsRuntime(e);
             }
-            log.warn("[Session] Redis 读取失败，尝试内存 Session: {}", e.getMessage());
+            log.warn("[Session] Redis 读取失败，尝试内存 Session: {}", rootMessage(e));
         }
         return fallbackRepository.findById(id);
     }
@@ -76,11 +77,11 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
     public void deleteById(String id) {
         try {
             delegate.deleteById(id);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             if (!isRedisFailure(e)) {
-                throw e;
+                throwAsRuntime(e);
             }
-            log.warn("[Session] Redis 删除失败: {}", e.getMessage());
+            log.warn("[Session] Redis 删除失败: {}", rootMessage(e));
         }
         fallbackRepository.deleteById(id);
     }
@@ -102,11 +103,31 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
             }
             String msg = t.getMessage();
             if (msg != null && (msg.contains("Unexpected end of stream")
+                    || msg.contains("Could not get a resource from the pool")
+                    || msg.contains("Cannot get Jedis connection")
                     || msg.contains("Connection reset")
                     || msg.contains("Broken pipe"))) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static String rootMessage(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        return root.getMessage();
+    }
+
+    private static void throwAsRuntime(Throwable t) {
+        if (t instanceof RuntimeException) {
+            throw (RuntimeException) t;
+        }
+        if (t instanceof Error) {
+            throw (Error) t;
+        }
+        throw new RuntimeException(t);
     }
 }
