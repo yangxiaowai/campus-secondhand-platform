@@ -3,6 +3,7 @@ package com.campus.controller;
 import com.campus.config.MinIOConfig;
 import com.campus.entity.Product;
 import com.campus.service.DegradeService;
+import com.campus.service.IndexService;
 import com.campus.service.MetricsService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
@@ -57,6 +58,9 @@ public class TestController {
 
     @Autowired(required = false)
     private MetricsService metricsService;
+
+    @Autowired(required = false)
+    private IndexService indexService;
 
     /**
      * 测试 Redis 连接
@@ -280,6 +284,53 @@ public class TestController {
         result.put("historyKey", historyKey);
         result.put("history", redisTemplate.opsForList().range(historyKey, 0, 20));
         result.put("historyTTL", redisTemplate.getExpire(historyKey));
+        return result;
+    }
+
+    /**
+     * 成员4：查看两级索引与收件箱（验收用）
+     */
+    @GetMapping("/index/stats")
+    @ResponseBody
+    public Map<String, Object> testIndexStats(Integer categoryId, String keyword, Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        if (redisTemplate == null) {
+            result.put("success", false);
+            result.put("message", "RedisTemplate 未注入");
+            return result;
+        }
+        int catId = categoryId == null ? 1 : categoryId;
+        String kw = (keyword == null || keyword.isEmpty()) ? "算法" : keyword;
+        String categoryKey = "idx:category:" + catId + ":users";
+        String keywordKey = "idx:keyword:" + kw + ":users";
+        result.put("success", true);
+        result.put("categoryKey", categoryKey);
+        result.put("categoryUsers", redisTemplate.opsForSet().members(categoryKey));
+        result.put("keywordKey", keywordKey);
+        result.put("keywordUsers", redisTemplate.opsForSet().members(keywordKey));
+        if (userId != null) {
+            String inboxKey = "user:inbox:" + userId;
+            result.put("inboxKey", inboxKey);
+            result.put("inbox", redisTemplate.opsForZSet().reverseRangeWithScores(inboxKey, 0, 19));
+        }
+        return result;
+    }
+
+    /**
+     * 成员4：触发全量索引重建
+     */
+    @GetMapping("/index/rebuild")
+    @ResponseBody
+    public Map<String, Object> testIndexRebuild() {
+        Map<String, Object> result = new HashMap<>();
+        if (indexService == null) {
+            result.put("success", false);
+            result.put("message", "IndexService 未注入");
+            return result;
+        }
+        indexService.rebuildAllIndexes();
+        result.put("success", true);
+        result.put("message", "全量索引重建已触发，请访问 /test/index/stats 查看");
         return result;
     }
 }

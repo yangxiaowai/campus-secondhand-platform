@@ -3,6 +3,8 @@ package com.campus.service.impl;
 import com.campus.dao.UserMapper;
 import com.campus.entity.Product;
 import com.campus.entity.User;
+import com.campus.service.IndexService;
+import com.campus.service.InboxService;
 import com.campus.service.MatchEngine;
 import com.campus.service.MatchService;
 import com.campus.service.MetricsService;
@@ -13,8 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 成员B：发布事件驱动的匹配与收件箱写入
@@ -24,9 +28,6 @@ public class MatchEngineImpl implements MatchEngine {
 
     private static final Logger log = LoggerFactory.getLogger(MatchEngineImpl.class);
 
-    /** Redis ZSet：score=匹配度，member=商品ID字符串 */
-    private static final String INBOX_KEY_PREFIX = "user:inbox:";
-    private static final long INBOX_TTL_SECONDS = 30L * 24 * 60 * 60;
     /** 低于阈值不写入收件箱，减少噪声 */
     private static final double INBOX_MIN_SCORE = 0.12;
 
@@ -41,6 +42,12 @@ public class MatchEngineImpl implements MatchEngine {
 
     @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private IndexService indexService;
+
+    @Autowired
+    private InboxService inboxService;
 
     @Autowired
     private MetricsService metricsService;
@@ -69,16 +76,43 @@ public class MatchEngineImpl implements MatchEngine {
 
         productFeatureService.saveProductFeatures(product, keywords);
 
+        int totalUsers = userMapper.count();
+        if (totalUsers <= 0) {
+            List<User> all = userMapper.findAll();
+            totalUsers = all == null ? 0 : all.size();
+        }
+
+        Set<Integer> candidateIds = indexService.findCandidateUserIds(
+                product.getCategoryId(), keywords, totalUsers);
+
+        Map<Integer, User> userById = new HashMap<>();
         List<User> users = userMapper.findAll();
-        if (users == null || users.isEmpty()) {
+        if (users != null) {
+            for (User u : users) {
+                if (u != null && u.getId() != null) {
+                    userById.put(u.getId(), u);
+                }
+            }
+        }
+        if (userById.isEmpty()) {
             return;
+        }
+
+        Iterable<Integer> targetUserIds;
+        if (candidateIds == null || candidateIds.isEmpty()) {
+            targetUserIds = userById.keySet();
+            log.info("[成员4-索引] 索引未命中，回退全量遍历 {} 人", userById.size());
+        } else {
+            targetUserIds = candidateIds;
         }
 
         long matchStart = System.currentTimeMillis();
         Integer sellerId = product.getUserId();
         int pushed = 0;
-        for (User u : users) {
-            if (u == null || u.getId() == null) {
+        Double productPrice = product.getPrice() != null ? product.getPrice().doubleValue() : null;
+        for (Integer uid : targetUserIds) {
+            User u = userById.get(uid);
+            if (u == null) {
                 continue;
             }
             if (u.getStatus() != null && u.getStatus() != 1) {
@@ -90,18 +124,19 @@ public class MatchEngineImpl implements MatchEngine {
             double score = matchService.computeMatchScore(
                     u.getId(),
                     product.getCategoryId(),
-                    product.getPrice() != null ? product.getPrice().doubleValue() : null,
+                    productPrice,
                     keywords);
             if (score < INBOX_MIN_SCORE) {
                 continue;
             }
-            String inboxKey = INBOX_KEY_PREFIX + u.getId();
-            redisTemplate.opsForZSet().add(inboxKey, product.getId(), score);
-            redisTemplate.expire(inboxKey, INBOX_TTL_SECONDS, TimeUnit.SECONDS);
+            inboxService.push(u.getId(), product.getId(), score);
             pushed++;
-            log.debug("[成员B-收件箱] userId={}, productId={}, matchScore={}", u.getId(), product.getId(), score);
+            log.debug("[成员4-收件箱] userId={}, productId={}, matchScore={}", u.getId(), product.getId(), score);
         }
         metricsService.recordMatch(System.currentTimeMillis() - matchStart, pushed);
-        log.info("[成员B-MatchEngine] 发布匹配完成 productId={}，写入收件箱用户数={}", product.getId(), pushed);
+        log.info("[成员B-MatchEngine] 发布匹配完成 productId={}，索引候选={}，写入收件箱用户数={}",
+                product.getId(),
+                candidateIds == null ? "全量" : candidateIds.size(),
+                pushed);
     }
 }

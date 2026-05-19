@@ -5,6 +5,7 @@ import com.campus.dao.UserProfileMapper;
 import com.campus.entity.Product;
 import com.campus.entity.UserProfile;
 import com.campus.service.DegradeService;
+import com.campus.service.InboxService;
 import com.campus.service.MetricsService;
 import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
@@ -44,6 +45,9 @@ public class DegradeServiceImpl implements DegradeService {
 
     @Autowired
     private MetricsService metricsService;
+
+    @Autowired(required = false)
+    private InboxService inboxService;
 
     @Override
     public boolean isRedisAvailable() {
@@ -112,39 +116,17 @@ public class DegradeServiceImpl implements DegradeService {
             return toInboxRows(l2HotProducts(safeLimit), 0.3, "L2");
         }
 
-        String inboxKey = INBOX_KEY_PREFIX + userId;
-        Set<ZSetOperations.TypedTuple<Object>> tuples;
+        List<Map<String, Object>> rows;
         try {
-            tuples = redisTemplate.opsForZSet().reverseRangeWithScores(inboxKey, 0, safeLimit - 1);
+            if (inboxService != null) {
+                rows = new ArrayList<>(inboxService.listSorted(userId, safeLimit));
+            } else {
+                rows = loadInboxRowsLegacy(userId, safeLimit);
+            }
         } catch (Exception e) {
             log.warn("[成员D] 收件箱读取失败，L1 兜底: {}", e.getMessage());
             metricsService.recordDegradeL1();
             return toInboxRows(l1CategoryHotFromDb(userId, safeLimit), 0.5, "L1");
-        }
-        List<Map<String, Object>> rows = new ArrayList<>();
-        if (tuples != null) {
-            for (ZSetOperations.TypedTuple<Object> t : tuples) {
-                if (t.getValue() == null || t.getScore() == null) {
-                    continue;
-                }
-                Integer productId = parseInt(t.getValue());
-                if (productId == null) {
-                    continue;
-                }
-                Product p = productMapper.findById(productId);
-                if (p == null || Objects.equals(p.getStatus(), 3)) {
-                    continue;
-                }
-                Map<String, Object> row = new HashMap<>();
-                row.put("productId", productId);
-                row.put("matchScore", round3(t.getScore()));
-                row.put("name", p.getName());
-                row.put("price", p.getPrice());
-                row.put("categoryId", p.getCategoryId());
-                row.put("imageUrl", p.getImageUrl());
-                row.put("source", "inbox");
-                rows.add(row);
-            }
         }
         if (!rows.isEmpty()) {
             metricsService.recordCacheHit();
@@ -257,6 +239,41 @@ public class DegradeServiceImpl implements DegradeService {
         boolean noKeywords = profile.getKeywords() == null || profile.getKeywords().isEmpty();
         boolean noBrowse = profile.getBrowseCount() == null || profile.getBrowseCount() <= 0;
         return noCategory && noKeywords && noBrowse;
+    }
+
+    private List<Map<String, Object>> loadInboxRowsLegacy(Integer userId, int limit) {
+        String inboxKey = INBOX_KEY_PREFIX + userId;
+        Set<ZSetOperations.TypedTuple<Object>> tuples =
+                redisTemplate.opsForZSet().reverseRangeWithScores(inboxKey, 0, limit - 1);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (tuples == null) {
+            return rows;
+        }
+        int rank = 1;
+        for (ZSetOperations.TypedTuple<Object> t : tuples) {
+            if (t.getValue() == null || t.getScore() == null) {
+                continue;
+            }
+            Integer productId = parseInt(t.getValue());
+            if (productId == null) {
+                continue;
+            }
+            Product p = productMapper.findById(productId);
+            if (p == null || Objects.equals(p.getStatus(), 3)) {
+                continue;
+            }
+            Map<String, Object> row = new HashMap<>();
+            row.put("rank", rank++);
+            row.put("productId", productId);
+            row.put("matchScore", round3(t.getScore()));
+            row.put("name", p.getName());
+            row.put("price", p.getPrice());
+            row.put("categoryId", p.getCategoryId());
+            row.put("imageUrl", p.getImageUrl());
+            row.put("source", "inbox");
+            rows.add(row);
+        }
+        return rows;
     }
 
     private List<Product> loadProductsFromInbox(Integer userId, int limit) {

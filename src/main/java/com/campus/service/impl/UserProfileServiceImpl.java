@@ -4,12 +4,14 @@ import com.campus.dao.ProductMapper;
 import com.campus.dao.UserProfileMapper;
 import com.campus.entity.Product;
 import com.campus.entity.UserProfile;
+import com.campus.service.IndexService;
 import com.campus.service.UserProfileService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -62,6 +64,10 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired(required = false)
+    @Lazy
+    private IndexService indexService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -226,6 +232,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
             // 7. 写回 Redis
             saveProfileToRedis(profile);
+            refreshUserIndex(userId);
 
             // 8. 异步同步到 MySQL
             syncProfileToDb(profile);
@@ -290,6 +297,7 @@ public class UserProfileServiceImpl implements UserProfileService {
             profile.setVersion(profile.getVersion() == null ? 1L : profile.getVersion() + 1);
 
             saveProfileToRedis(profile);
+            refreshUserIndex(userId);
             syncProfileToDb(profile);
 
         } catch (Exception e) {
@@ -336,6 +344,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
             // 写回 Redis
             saveProfileToRedis(profile);
+            refreshUserIndex(userId);
 
             // 持久化到 MySQL
             syncProfileToDb(profile);
@@ -372,6 +381,9 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
         }
         log.info("全量重建完成，成功={}/{}", success, userIds.size());
+        if (indexService != null) {
+            indexService.rebuildAllIndexes();
+        }
     }
 
     @Override
@@ -385,6 +397,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 if (parsedProfile != null) {
                     parsedProfile.setVersion(profile.getVersion());
                     saveProfileToRedis(parsedProfile);
+                    refreshUserIndex(userId);
                     log.info("从 MySQL 恢复画像到 Redis 成功，userId={}", userId);
                     return true;
                 }
@@ -736,6 +749,12 @@ public class UserProfileServiceImpl implements UserProfileService {
         profile.setPurchaseCount(0);
         profile.setVersion(0L);
         return profile;
+    }
+
+    private void refreshUserIndex(Integer userId) {
+        if (indexService != null) {
+            indexService.rebuildUserIndex(userId);
+        }
     }
 
     // ================================================================
