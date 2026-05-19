@@ -5,6 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.session.MapSession;
+import redis.clients.jedis.exceptions.JedisConnectionException;
+import redis.clients.jedis.exceptions.JedisException;
 import org.springframework.session.MapSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -90,7 +92,21 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
         return new MapSession(session);
     }
 
-    private static boolean isRedisFailure(Exception e) {
-        return e instanceof RedisConnectionFailureException || e instanceof DataAccessException;
+    private static boolean isRedisFailure(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof RedisConnectionFailureException
+                    || t instanceof DataAccessException
+                    || t instanceof JedisConnectionException
+                    || t instanceof JedisException) {
+                return true;
+            }
+            String msg = t.getMessage();
+            if (msg != null && (msg.contains("Unexpected end of stream")
+                    || msg.contains("Connection reset")
+                    || msg.contains("Broken pipe"))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

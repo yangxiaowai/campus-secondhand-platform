@@ -45,11 +45,11 @@ public class SessionConfig {
     }
 
     /**
-     * 运行期 Session 降级包装
+     * 覆盖 Spring Session 默认的 sessionRepository，使 Filter 走降级包装而非直连 Redis
      */
-    @Bean
+    @Bean(name = "sessionRepository")
     @Primary
-    public SessionRepository<?> resilientSessionRepository(RedisIndexedSessionRepository redisSessionRepository) {
+    public SessionRepository<?> sessionRepository(RedisIndexedSessionRepository redisSessionRepository) {
         return new ResilientSessionRepository(redisSessionRepository);
     }
 
