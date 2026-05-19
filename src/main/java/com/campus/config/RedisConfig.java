@@ -38,6 +38,18 @@ public class RedisConfig {
     @Value("${redis.timeout}")
     private int timeout;
 
+    @Value("${redis.pool.maxTotal:400}")
+    private int poolMaxTotal;
+
+    @Value("${redis.pool.maxIdle:50}")
+    private int poolMaxIdle;
+
+    @Value("${redis.pool.minIdle:10}")
+    private int poolMinIdle;
+
+    @Value("${redis.pool.maxWaitMillis:3000}")
+    private long poolMaxWaitMillis;
+
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
@@ -49,6 +61,17 @@ public class RedisConfig {
         }
 
         JedisPoolConfig poolConfig = new JedisPoolConfig();
+        poolConfig.setMaxTotal(poolMaxTotal);
+        poolConfig.setMaxIdle(poolMaxIdle);
+        poolConfig.setMinIdle(poolMinIdle);
+        poolConfig.setMaxWaitMillis(poolMaxWaitMillis);
+        poolConfig.setBlockWhenExhausted(true);
+        poolConfig.setTestOnBorrow(true);
+        poolConfig.setTestWhileIdle(true);
+        poolConfig.setTimeBetweenEvictionRunsMillis(30_000);
+        poolConfig.setMinEvictableIdleTimeMillis(60_000);
+        poolConfig.setNumTestsPerEvictionRun(3);
+
         JedisClientConfiguration clientConfig = JedisClientConfiguration.builder()
                 .usePooling()
                 .poolConfig(poolConfig)
@@ -57,7 +80,9 @@ public class RedisConfig {
                 .connectTimeout(Duration.ofMillis(timeout))
                 .build();
 
-        return new JedisConnectionFactory(config, clientConfig);
+        JedisConnectionFactory factory = new JedisConnectionFactory(config, clientConfig);
+        factory.afterPropertiesSet();
+        return factory;
     }
 
     @Bean

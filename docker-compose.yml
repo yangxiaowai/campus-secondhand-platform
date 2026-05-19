@@ -28,6 +28,11 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: >
+      redis-server
+      --maxclients 10000
+      --tcp-keepalive 60
+      --timeout 0
     # 映射到本机 6380，避免与本机已占用的 6379（如本机 Redis）冲突；容器内仍为 6379，应用用服务名 redis 连接不变
     ports:
       - "6380:6379"
