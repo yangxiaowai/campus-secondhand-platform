@@ -100,9 +100,16 @@ public class ResilientSessionRepository implements SessionRepository<Session> {
         return new MapSession(session);
     }
 
-    /** 仅 RedisSession 可写入 Redis；降级产生的 MapSession 只走内存库 */
+    /** 仅 RedisSession 可写入 Redis；MapSession 及降级 Session 只走内存库 */
     private static boolean isRedisBackedSession(Session session) {
-        return session != null && "RedisSession".equals(session.getClass().getSimpleName());
+        if (session == null) {
+            return false;
+        }
+        String className = session.getClass().getName();
+        if (className.contains("MapSession") && !className.endsWith("RedisSession")) {
+            return false;
+        }
+        return className.endsWith("RedisSession");
     }
 
     private static boolean isSessionTypeMismatch(Throwable e) {

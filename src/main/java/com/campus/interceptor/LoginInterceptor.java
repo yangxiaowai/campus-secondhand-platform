@@ -1,6 +1,6 @@
 package com.campus.interceptor;
 
-import com.campus.entity.User;
+import com.campus.util.SessionUserHelper;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -16,9 +16,7 @@ public class LoginInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         HttpSession session = request.getSession();
-        User user = (User) session.getAttribute("user");
-
-        if (user == null) {
+        if (!SessionUserHelper.isLoggedIn(session)) {
             // Ajax 请求返回 JSON，避免前端把登录页 HTML 当成接口结果
             String xRequestedWith = request.getHeader("X-Requested-With");
             if ("XMLHttpRequest".equalsIgnoreCase(xRequestedWith)) {

@@ -201,6 +201,16 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 3. 更新价格区间
             if (price != null) {
                 UserProfile.PriceRange range = profile.getPriceRange();
+                if (range == null) {
+                    range = new UserProfile.PriceRange();
+                    profile.setPriceRange(range);
+                }
+                if (range.getMinPrice() == null) {
+                    range.setMinPrice(Double.MAX_VALUE);
+                }
+                if (range.getMaxPrice() == null) {
+                    range.setMaxPrice(0.0);
+                }
                 if (price < range.getMinPrice()) range.setMinPrice(price);
                 if (price > range.getMaxPrice()) range.setMaxPrice(price);
                 // 更新平均价格（移动平均）
@@ -271,6 +281,16 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 更新价格区间（同浏览）
             if (price != null) {
                 UserProfile.PriceRange range = profile.getPriceRange();
+                if (range == null) {
+                    range = new UserProfile.PriceRange();
+                    profile.setPriceRange(range);
+                }
+                if (range.getMinPrice() == null) {
+                    range.setMinPrice(Double.MAX_VALUE);
+                }
+                if (range.getMaxPrice() == null) {
+                    range.setMaxPrice(0.0);
+                }
                 if (price < range.getMinPrice()) range.setMinPrice(price);
                 if (price > range.getMaxPrice()) range.setMaxPrice(price);
                 double oldAvg = range.getAvgPrice() == null ? 0.0 : range.getAvgPrice();
@@ -539,6 +559,12 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 价格区间
             if (profile.getPriceRange() != null) {
                 UserProfile.PriceRange range = profile.getPriceRange();
+                if (range.getMinPrice() == null) {
+                    range.setMinPrice(Double.MAX_VALUE);
+                }
+                if (range.getMaxPrice() == null) {
+                    range.setMaxPrice(0.0);
+                }
                 Map<String, Object> priceMap = new HashMap<>();
                 priceMap.put("min", range.getMinPrice());
                 priceMap.put("max", range.getMaxPrice());

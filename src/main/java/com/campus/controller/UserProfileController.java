@@ -5,6 +5,7 @@ import com.campus.entity.User;
 import com.campus.entity.UserProfile;
 import com.campus.service.DegradeService;
 import com.campus.service.UserProfileService;
+import com.campus.util.SessionUserHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,32 +59,36 @@ public class UserProfileController {
     @RequestMapping("/profile")
     @ResponseBody
     public Result<Map<String, Object>> getProfile(HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
         }
 
         UserProfile profile = userProfileService.getProfile(user.getId());
+        if (profile == null) {
+            return Result.error("画像数据不存在");
+        }
         Map<String, Object> data = new HashMap<>();
 
-        // 原始分类权重
-        data.put("categoryWeights", profile.getCategoryWeights());
-
-        // 归一化后的分类权重（成员B匹配引擎使用的数据）
+        Map<Integer, Integer> categoryWeights = profile.getCategoryWeights();
+        if (categoryWeights == null) {
+            categoryWeights = new HashMap<>();
+        }
+        data.put("categoryWeights", categoryWeights);
         data.put("normalizedWeights", userProfileService.getNormalizedCategoryWeights(user.getId()));
 
-        // 价格区间
         UserProfile.PriceRange priceRange = profile.getPriceRange();
+        if (priceRange == null) {
+            priceRange = new UserProfile.PriceRange();
+        }
         Map<String, Object> priceMap = new HashMap<>();
         priceMap.put("min", priceRange.getMinPrice());
         priceMap.put("max", priceRange.getMaxPrice());
         priceMap.put("avg", priceRange.getAvgPrice());
         data.put("priceRange", priceMap);
 
-        // 关键词偏好
-        data.put("keywords", profile.getKeywords());
-
-        // 活跃度指标
+        Map<String, Integer> keywords = profile.getKeywords();
+        data.put("keywords", keywords != null ? keywords : new HashMap<>());
         data.put("browseCount", profile.getBrowseCount());
         data.put("purchaseCount", profile.getPurchaseCount());
         data.put("lastBrowseTime", profile.getLastBrowseTime());
@@ -91,8 +96,8 @@ public class UserProfileController {
 
         log.info("用户画像查询成功，userId={}, 分类数={}, 关键词数={}",
                 user.getId(),
-                profile.getCategoryWeights().size(),
-                profile.getKeywords().size());
+                categoryWeights.size(),
+                keywords != null ? keywords.size() : 0);
 
         return Result.success("画像查询成功", data);
     }
@@ -104,7 +109,7 @@ public class UserProfileController {
     @RequestMapping("/profile/rebuild")
     @ResponseBody
     public Result<String> rebuildProfile(HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
         }
@@ -120,7 +125,7 @@ public class UserProfileController {
     @RequestMapping("/profile/summary")
     @ResponseBody
     public Result<Map<String, Object>> getProfileSummary(HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
         }
@@ -166,7 +171,7 @@ public class UserProfileController {
     @RequestMapping("/inbox")
     @ResponseBody
     public Result<List<Map<String, Object>>> getRecommendInbox(HttpSession session) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
         }

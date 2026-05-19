@@ -11,6 +11,7 @@ import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
 import com.campus.util.FileUploadUtil;
 import com.campus.util.MinIOUtil;
+import com.campus.util.SessionUserHelper;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.slf4j.Logger;
@@ -70,12 +71,16 @@ public class ProductController {
                        @RequestParam(defaultValue = "12") Integer pageSize,
                        String keyword,
                        Integer categoryId,
+                       String errorMsg,
                        Model model) {
         PageInfo<Product> pageInfo = productService.findList(keyword, categoryId, pageNum, pageSize);
         model.addAttribute("pageInfo", pageInfo);
         model.addAttribute("categories", categoryService.findAll());
         model.addAttribute("keyword", keyword);
         model.addAttribute("categoryId", categoryId);
+        if (errorMsg != null && !errorMsg.isEmpty()) {
+            model.addAttribute("errorMsg", errorMsg);
+        }
         
         // 热门商品
         model.addAttribute("hotProducts", productService.findHotProducts(6));
@@ -98,19 +103,22 @@ public class ProductController {
             productService.increaseViewCount(id); // 增加浏览量（SQL 层自增，无需重新查询）
             product.setViewCount(product.getViewCount() + 1); // 本地 +1，避免重复查询
 
-            // 记录浏览历史（用于个性化推荐）
-            User user = (User) session.getAttribute("user");
+            // 记录浏览历史 / 画像更新（Redis 异常时不影响详情页展示）
+            User user = SessionUserHelper.getLoginUser(session);
             if (user != null) {
-                recommendService.recordBrowseHistory(user.getId(), id);
-
-                List<String> keywords = productFeatureService.extractKeywords(
-                        product.getName() != null ? product.getName() : "");
-                userProfileService.recordBrowse(
-                        user.getId(),
-                        product.getCategoryId(),
-                        product.getPrice() != null ? product.getPrice().doubleValue() : null,
-                        keywords
-                );
+                try {
+                    recommendService.recordBrowseHistory(user.getId(), id);
+                    List<String> keywords = productFeatureService.extractKeywords(
+                            product.getName() != null ? product.getName() : "");
+                    userProfileService.recordBrowse(
+                            user.getId(),
+                            product.getCategoryId(),
+                            product.getPrice() != null ? product.getPrice().doubleValue() : null,
+                            keywords
+                    );
+                } catch (Exception e) {
+                    logger.warn("记录浏览历史或更新画像失败，已忽略: {}", e.getMessage());
+                }
             }
 
             // 获取相似商品推荐
@@ -141,7 +149,7 @@ public class ProductController {
                                        HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         try {
-            User user = (User) session.getAttribute("user");
+            User user = SessionUserHelper.getLoginUser(session);
             product.setUserId(user.getId());
 
             // 上传图片到 MinIO（多实例共享）
@@ -164,7 +172,7 @@ public class ProductController {
      */
     @RequestMapping("/manage")
     public String manage(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         model.addAttribute("products", productService.findByUserId(user.getId()));
         return "product/manage";
     }
@@ -216,7 +224,7 @@ public class ProductController {
     @ResponseBody
     public Map<String, Object> delete(Integer id, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             result.put("success", false);
             result.put("message", "登录已失效，请重新登录");
@@ -277,7 +285,7 @@ public class ProductController {
      */
     @RequestMapping("/history")
     public String browseHistory(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user != null) {
             List<Product> history = recommendService.getBrowseHistory(user.getId(), 20);
             model.addAttribute("historyProducts", history);
@@ -296,7 +304,7 @@ public class ProductController {
         User user = null;
         boolean sessionDegraded = false;
         try {
-            user = (User) session.getAttribute("user");
+            user = SessionUserHelper.getLoginUser(session);
         } catch (Exception e) {
             sessionDegraded = true;
         }

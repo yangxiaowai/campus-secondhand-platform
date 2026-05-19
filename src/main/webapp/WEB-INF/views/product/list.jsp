@@ -34,6 +34,14 @@
     </nav>
 
     <div class="container mt-4">
+        <c:if test="${not empty errorMsg}">
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                ${errorMsg}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </c:if>
         <div class="filter-card mb-4">
             <form action="${ctx}/product/list" method="get">
                 <div class="form-row align-items-center">
@@ -74,7 +82,7 @@
                         </a>
                         <div class="card-body">
                             <div class="mb-2">
-                                <span class="tag-pill">${product.category.categoryName}</span>
+                                <span class="tag-pill">${product.category != null ? product.category.categoryName : '未分类'}</span>
                             </div>
                             <div class="product-title mb-2">
                                 <a href="${ctx}/product/detail?id=${product.id}" class="text-dark text-decoration-none">

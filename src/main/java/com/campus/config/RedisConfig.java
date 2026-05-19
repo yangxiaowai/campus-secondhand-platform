@@ -11,6 +11,7 @@ import org.springframework.data.redis.connection.jedis.JedisClientConfiguration;
 import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.JdkSerializationRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 import redis.clients.jedis.JedisPoolConfig;
 
@@ -76,7 +77,7 @@ public class RedisConfig {
     @Bean(name = "sessionRedisTemplate")
     public RedisTemplate<String, Object> sessionRedisTemplate(
             RedisConnectionFactory sessionRedisConnectionFactory) {
-        return buildRedisTemplate(sessionRedisConnectionFactory);
+        return buildSessionRedisTemplate(sessionRedisConnectionFactory);
     }
 
     @Bean
@@ -119,6 +120,20 @@ public class RedisConfig {
         JedisConnectionFactory factory = new JedisConnectionFactory(config, clientConfig);
         factory.afterPropertiesSet();
         return factory;
+    }
+
+    /** Session 使用 JDK 序列化，避免 User 等对象反序列化成 Map 导致强转失败。 */
+    private static RedisTemplate<String, Object> buildSessionRedisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        StringRedisSerializer stringSerializer = new StringRedisSerializer();
+        JdkSerializationRedisSerializer jdkSerializer = new JdkSerializationRedisSerializer();
+        template.setKeySerializer(stringSerializer);
+        template.setValueSerializer(jdkSerializer);
+        template.setHashKeySerializer(stringSerializer);
+        template.setHashValueSerializer(jdkSerializer);
+        template.afterPropertiesSet();
+        return template;
     }
 
     private static RedisTemplate<String, Object> buildRedisTemplate(RedisConnectionFactory factory) {

@@ -125,7 +125,7 @@
                                 <h6 class="font-weight-bold mb-3">卖家信息</h6>
                                 <div class="d-flex align-items-center">
                                     <div class="user-avatar mr-3" style="width: 50px; height: 50px; font-size: 20px;">
-                                        ${product.seller.nickname.substring(0,1)}
+                                        ${not empty product.seller.nickname ? product.seller.nickname.substring(0,1) : '用'}
                                     </div>
                                     <div>
                                         <p class="mb-1 font-weight-bold">${product.seller.nickname}</p>

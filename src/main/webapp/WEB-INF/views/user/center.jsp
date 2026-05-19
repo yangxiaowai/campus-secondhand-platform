@@ -51,7 +51,7 @@
                 <div class="card card-ui">
                     <div class="card-body d-flex align-items-center">
                         <div class="user-avatar mr-3" style="width: 60px; height: 60px; font-size: 24px;">
-                            ${sessionScope.user.nickname.substring(0,1)}
+                            ${not empty sessionScope.user.nickname ? sessionScope.user.nickname.substring(0,1) : '用'}
                         </div>
                         <div>
                             <h5 class="mb-1">${sessionScope.user.nickname}</h5>
