@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.session.SessionRepository;
 import org.springframework.session.data.redis.RedisIndexedSessionRepository;
@@ -44,13 +46,23 @@ public class SessionConfig {
         return container;
     }
 
+    @Bean
+    @SuppressWarnings("unchecked")
+    public RedisIndexedSessionRepository redisIndexedSessionRepository(RedisTemplate<String, Object> redisTemplate) {
+        RedisOperations<Object, Object> sessionRedis =
+                (RedisOperations<Object, Object>) (RedisOperations<?, ?>) redisTemplate;
+        RedisIndexedSessionRepository repository = new RedisIndexedSessionRepository(sessionRedis);
+        repository.setDefaultMaxInactiveInterval(1800);
+        return repository;
+    }
+
     /**
-     * 覆盖 Spring Session 默认的 sessionRepository，使 Filter 走降级包装而非直连 Redis
+     * 覆盖 Spring Session 默认 sessionRepository，Filter 使用带降级的包装实现。
      */
     @Bean(name = "sessionRepository")
     @Primary
-    public SessionRepository<?> sessionRepository(RedisIndexedSessionRepository redisSessionRepository) {
-        return new ResilientSessionRepository(redisSessionRepository);
+    public SessionRepository<?> sessionRepository(RedisIndexedSessionRepository redisIndexedSessionRepository) {
+        return new ResilientSessionRepository(redisIndexedSessionRepository);
     }
 
     @Bean
