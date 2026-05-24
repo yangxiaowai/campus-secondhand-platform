@@ -58,6 +58,25 @@
         WHERE p.id = #{id}
     </select>
 
+    <select id="findByIds" resultMap="productMap">
+        SELECT p.*, c.category_name, u.nickname, u.phone, u.email
+        FROM t_product p
+        LEFT JOIN t_category c ON p.category_id = c.id
+        LEFT JOIN t_user u ON p.user_id = u.id
+        WHERE p.status = 0
+        <if test="ids != null and ids.size() > 0">
+            AND p.id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            ORDER BY FIELD(p.id,
+            <foreach collection="ids" item="id" separator=",">
+                #{id}
+            </foreach>
+            )
+        </if>
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO t_product (name, price, image_url, description, category_id, user_id, status)
         VALUES (#{name}, #{price}, #{imageUrl}, #{description}, #{categoryId}, #{userId}, #{status})

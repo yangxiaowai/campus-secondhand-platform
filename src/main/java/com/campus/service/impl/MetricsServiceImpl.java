@@ -27,6 +27,9 @@ public class MetricsServiceImpl implements MetricsService {
     private final AtomicLong cacheMiss = new AtomicLong();
     private final AtomicLong degradeL1 = new AtomicLong();
     private final AtomicLong degradeL2 = new AtomicLong();
+    private final AtomicLong searchHit = new AtomicLong();
+    private final AtomicLong searchDegradeL1 = new AtomicLong();
+    private final AtomicLong searchDegradeL2 = new AtomicLong();
 
     @Override
     public void recordMatch(long durationMs, int pushCount) {
@@ -62,6 +65,21 @@ public class MetricsServiceImpl implements MetricsService {
     }
 
     @Override
+    public void recordSearchHit() {
+        searchHit.incrementAndGet();
+    }
+
+    @Override
+    public void recordSearchDegradeL1() {
+        searchDegradeL1.incrementAndGet();
+    }
+
+    @Override
+    public void recordSearchDegradeL2() {
+        searchDegradeL2.incrementAndGet();
+    }
+
+    @Override
     public Map<String, Object> snapshot() {
         long mCount = matchCount.get();
         long rCount = recommendCount.get();
@@ -80,6 +98,9 @@ public class MetricsServiceImpl implements MetricsService {
         map.put("cacheHitRate", cacheTotal == 0 ? 0.0 : (hits * 1.0 / cacheTotal));
         map.put("degradeL1", degradeL1.get());
         map.put("degradeL2", degradeL2.get());
+        map.put("searchHit", searchHit.get());
+        map.put("searchDegradeL1", searchDegradeL1.get());
+        map.put("searchDegradeL2", searchDegradeL2.get());
         map.put("timestamp", System.currentTimeMillis());
         return map;
     }

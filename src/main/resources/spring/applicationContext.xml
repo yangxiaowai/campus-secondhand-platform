@@ -20,7 +20,7 @@
     <aop:aspectj-autoproxy proxy-target-class="true"/>
 
     <!-- 加载数据库配置文件 -->
-    <context:property-placeholder location="classpath:db.properties"/>
+    <context:property-placeholder location="classpath:db.properties,classpath:redis-config.properties"/>
 
     <!-- 配置Druid数据源（含监控配置） -->
     <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" destroy-method="close">

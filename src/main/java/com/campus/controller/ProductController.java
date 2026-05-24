@@ -7,6 +7,9 @@ import com.campus.service.CategoryService;
 import com.campus.service.ProductFeatureService;
 import com.campus.service.ProductService;
 import com.campus.service.DegradeService;
+import com.campus.search.SearchMode;
+import com.campus.search.SearchPageResult;
+import com.campus.service.ProductSearchService;
 import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
 import com.campus.util.FileUploadUtil;
@@ -58,6 +61,9 @@ public class ProductController {
     private ProductFeatureService productFeatureService;
 
     @Autowired
+    private ProductSearchService productSearchService;
+
+    @Autowired
     private MinIOUtil minIOUtil;
     
     @Value("${upload.path:D:/upload/}")
@@ -71,21 +77,53 @@ public class ProductController {
                        @RequestParam(defaultValue = "12") Integer pageSize,
                        String keyword,
                        Integer categoryId,
+                       @RequestParam(defaultValue = "HYBRID") String searchMode,
                        String errorMsg,
                        Model model) {
-        PageInfo<Product> pageInfo = productService.findList(keyword, categoryId, pageNum, pageSize);
-        model.addAttribute("pageInfo", pageInfo);
+        SearchMode mode = SearchMode.from(searchMode);
+        SearchPageResult searchResult = productSearchService.search(
+                keyword, categoryId, mode, pageNum, pageSize);
+        model.addAttribute("searchResult", searchResult);
+        model.addAttribute("pageInfo", searchResult);
         model.addAttribute("categories", categoryService.findAll());
         model.addAttribute("keyword", keyword);
         model.addAttribute("categoryId", categoryId);
+        model.addAttribute("searchMode", mode.name());
         if (errorMsg != null && !errorMsg.isEmpty()) {
             model.addAttribute("errorMsg", errorMsg);
         }
-        
-        // 热门商品
         model.addAttribute("hotProducts", productService.findHotProducts(6));
-        
         return "product/list";
+    }
+
+    /**
+     * 搜索 API（关键词 / 语义 / 混合，JSON）
+     */
+    @RequestMapping("/search")
+    @ResponseBody
+    public Map<String, Object> searchApi(String keyword,
+                                         Integer categoryId,
+                                         @RequestParam(defaultValue = "HYBRID") String searchMode,
+                                         @RequestParam(defaultValue = "1") Integer pageNum,
+                                         @RequestParam(defaultValue = "12") Integer pageSize) {
+        Map<String, Object> result = new HashMap<>();
+        SearchMode mode = SearchMode.from(searchMode);
+        SearchPageResult page = productSearchService.search(keyword, categoryId, mode, pageNum, pageSize);
+        result.put("success", true);
+        result.put("data", page.getList());
+        result.put("total", page.getTotal());
+        result.put("pageNum", page.getPageNum());
+        result.put("pageSize", page.getPageSize());
+        result.put("searchMode", page.getSearchMode().name());
+        result.put("engine", page.getEngine());
+        result.put("degradeLevel", page.getDegradeLevel());
+        result.put("tookMs", page.getTookMs());
+        result.put("shardCount", page.getShardCount());
+        result.put("scores", page.getScores());
+        result.put("redisAvailable", degradeService.isRedisAvailable());
+        result.put("semanticEngine", page.getSemanticEngine());
+        result.put("embeddingModel", page.getEmbeddingModel());
+        return result;
     }
 
     /**

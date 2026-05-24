@@ -45,11 +45,11 @@
         <div class="filter-card mb-4">
             <form action="${ctx}/product/list" method="get">
                 <div class="form-row align-items-center">
-                    <div class="col-md-5 mb-2">
+                    <div class="col-md-4 mb-2">
                         <input type="text" name="keyword" class="form-control" placeholder="搜索商品、描述..."
                                value="${keyword}">
                     </div>
-                    <div class="col-md-3 mb-2">
+                    <div class="col-md-2 mb-2">
                         <select name="categoryId" class="form-control">
                             <option value="0">全部分类</option>
                             <c:forEach items="${categories}" var="category">
@@ -60,6 +60,13 @@
                         </select>
                     </div>
                     <div class="col-md-2 mb-2">
+                        <select name="searchMode" class="form-control" title="搜索模式">
+                            <option value="HYBRID" ${searchMode == 'HYBRID' ? 'selected' : ''}>混合搜索</option>
+                            <option value="KEYWORD" ${searchMode == 'KEYWORD' ? 'selected' : ''}>关键词</option>
+                            <option value="SEMANTIC" ${searchMode == 'SEMANTIC' ? 'selected' : ''}>语义搜索</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-2">
                         <button type="submit" class="btn btn-primary btn-block">搜索</button>
                     </div>
                     <div class="col-md-2 mb-2 text-right">
@@ -67,6 +74,18 @@
                     </div>
                 </div>
             </form>
+            <c:if test="${not empty keyword}">
+                <div class="mt-2 small text-muted">
+                    引擎：${searchResult.engine}
+                    · 模式：${searchResult.searchMode}
+                    · 语义：${searchResult.semanticEngine}
+                    · Embedding：${searchResult.embeddingModel}
+                    · 降级：${searchResult.degradeLevel}
+                    · 分片：${searchResult.shardCount}
+                    · 耗时：${searchResult.tookMs}ms
+                    · 命中：${searchResult.total} 件
+                </div>
+            </c:if>
         </div>
 
         <div class="row">
@@ -104,17 +123,17 @@
             <ul class="pagination justify-content-center">
                 <c:if test="${pageInfo.hasPreviousPage}">
                     <li class="page-item">
-                        <a class="page-link" href="${ctx}/product/list?pageNum=${pageInfo.prePage}&keyword=${keyword}&categoryId=${categoryId}">上一页</a>
+                        <a class="page-link" href="${ctx}/product/list?pageNum=${pageInfo.prePage}&keyword=${keyword}&categoryId=${categoryId}&searchMode=${searchMode}">上一页</a>
                     </li>
                 </c:if>
                 <c:forEach items="${pageInfo.navigatepageNums}" var="num">
                     <li class="page-item ${num == pageInfo.pageNum ? 'active' : ''}">
-                        <a class="page-link" href="${ctx}/product/list?pageNum=${num}&keyword=${keyword}&categoryId=${categoryId}">${num}</a>
+                        <a class="page-link" href="${ctx}/product/list?pageNum=${num}&keyword=${keyword}&categoryId=${categoryId}&searchMode=${searchMode}">${num}</a>
                     </li>
                 </c:forEach>
                 <c:if test="${pageInfo.hasNextPage}">
                     <li class="page-item">
-                        <a class="page-link" href="${ctx}/product/list?pageNum=${pageInfo.nextPage}&keyword=${keyword}&categoryId=${categoryId}">下一页</a>
+                        <a class="page-link" href="${ctx}/product/list?pageNum=${pageInfo.nextPage}&keyword=${keyword}&categoryId=${categoryId}&searchMode=${searchMode}">下一页</a>
                     </li>
                 </c:if>
             </ul>

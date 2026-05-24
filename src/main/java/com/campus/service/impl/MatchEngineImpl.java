@@ -9,6 +9,7 @@ import com.campus.service.MatchEngine;
 import com.campus.service.MatchService;
 import com.campus.service.MetricsService;
 import com.campus.service.ProductFeatureService;
+import com.campus.service.ProductSearchIndexService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ public class MatchEngineImpl implements MatchEngine {
     @Autowired
     private MetricsService metricsService;
 
+    @Autowired(required = false)
+    private ProductSearchIndexService productSearchIndexService;
+
     @Override
     public void onProductPublished(Product product) {
         if (product == null || product.getId() == null) {
@@ -75,6 +79,14 @@ public class MatchEngineImpl implements MatchEngine {
                 product.getId(), title, tokens, keywords);
 
         productFeatureService.saveProductFeatures(product, keywords);
+
+        if (productSearchIndexService != null) {
+            try {
+                productSearchIndexService.indexProduct(product);
+            } catch (Exception e) {
+                log.warn("[搜索索引] 发布商品建索引失败 productId={}: {}", product.getId(), e.getMessage());
+            }
+        }
 
         int totalUsers = userMapper.count();
         if (totalUsers <= 0) {

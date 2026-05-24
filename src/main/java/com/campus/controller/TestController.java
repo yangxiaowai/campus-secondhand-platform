@@ -4,6 +4,12 @@ import com.campus.config.MinIOConfig;
 import com.campus.entity.Product;
 import com.campus.service.DegradeService;
 import com.campus.service.IndexService;
+import com.campus.service.ProductSearchIndexService;
+import com.campus.service.ProductSearchService;
+import com.campus.search.SearchMode;
+import com.campus.search.SearchPageResult;
+import com.campus.search.embedding.EmbeddingService;
+import com.campus.search.redis.RedisStackVectorIndexService;
 import com.campus.service.MetricsService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
@@ -20,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpSession;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +69,18 @@ public class TestController {
 
     @Autowired(required = false)
     private IndexService indexService;
+
+    @Autowired(required = false)
+    private ProductSearchService productSearchService;
+
+    @Autowired(required = false)
+    private ProductSearchIndexService productSearchIndexService;
+
+    @Autowired(required = false)
+    private EmbeddingService embeddingService;
+
+    @Autowired(required = false)
+    private RedisStackVectorIndexService redisStackVectorIndexService;
 
     /**
      * 测试 Redis 连接
@@ -331,6 +351,98 @@ public class TestController {
         indexService.rebuildAllIndexes();
         result.put("success", true);
         result.put("message", "全量索引重建已触发，请访问 /test/index/stats 查看");
+        return result;
+    }
+
+    /**
+     * 商品搜索验收：关键词 / 语义 / 混合
+     */
+    @GetMapping("/search")
+    @ResponseBody
+    public Map<String, Object> testSearch(String keyword,
+                                          Integer categoryId,
+                                          String mode,
+                                          Integer pageNum,
+                                          Integer pageSize) {
+        Map<String, Object> result = new HashMap<>();
+        if (productSearchService == null) {
+            result.put("success", false);
+            result.put("message", "ProductSearchService 未注入");
+            return result;
+        }
+        if (keyword == null || keyword.isEmpty()) {
+            result.put("success", false);
+            result.put("message", "请传 keyword 参数");
+            return result;
+        }
+        SearchMode searchMode = SearchMode.from(mode);
+        int pn = pageNum == null ? 1 : pageNum;
+        int ps = pageSize == null ? 12 : pageSize;
+        SearchPageResult page = productSearchService.search(keyword, categoryId, searchMode, pn, ps);
+        result.put("success", true);
+        result.put("searchMode", page.getSearchMode().name());
+        result.put("engine", page.getEngine());
+        result.put("degradeLevel", page.getDegradeLevel());
+        result.put("tookMs", page.getTookMs());
+        result.put("shardCount", page.getShardCount());
+        result.put("total", page.getTotal());
+        result.put("count", page.getList().size());
+        result.put("data", page.getList());
+        result.put("scores", page.getScores());
+        result.put("semanticEngine", page.getSemanticEngine());
+        result.put("embeddingModel", page.getEmbeddingModel());
+        if (degradeService != null) {
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+        }
+        if (redisStackVectorIndexService != null) {
+            result.put("redisStackAvailable", redisStackVectorIndexService.isStackAvailable());
+        }
+        return result;
+    }
+
+    /**
+     * 测试 Embedding 生成
+     */
+    @GetMapping("/search/embedding")
+    @ResponseBody
+    public Map<String, Object> testEmbedding(String text) {
+        Map<String, Object> result = new HashMap<>();
+        if (embeddingService == null) {
+            result.put("success", false);
+            result.put("message", "EmbeddingService 未注入");
+            return result;
+        }
+        if (text == null || text.isEmpty()) {
+            text = "二手教材 算法导论";
+        }
+        float[] vec = embeddingService.embed(text);
+        result.put("success", vec != null);
+        result.put("model", embeddingService.modelName());
+        result.put("dimensions", vec != null ? vec.length : 0);
+        result.put("sample", vec != null && vec.length > 0
+                ? Arrays.asList(vec[0], vec[Math.min(1, vec.length - 1)], vec[Math.min(2, vec.length - 1)])
+                : Collections.emptyList());
+        if (redisStackVectorIndexService != null) {
+            result.put("redisStackAvailable", redisStackVectorIndexService.isStackAvailable());
+        }
+        return result;
+    }
+
+    /**
+     * 重建商品搜索倒排索引
+     */
+    @GetMapping("/search/rebuild")
+    @ResponseBody
+    public Map<String, Object> testSearchRebuild() {
+        Map<String, Object> result = new HashMap<>();
+        if (productSearchIndexService == null) {
+            result.put("success", false);
+            result.put("message", "ProductSearchIndexService 未注入");
+            return result;
+        }
+        productSearchIndexService.rebuildAllIndexes();
+        result.put("success", true);
+        result.put("message", "商品搜索索引全量重建完成，请访问 /test/search?keyword=教材 验收");
         return result;
     }
 }

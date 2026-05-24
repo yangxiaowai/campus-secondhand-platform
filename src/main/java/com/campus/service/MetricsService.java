@@ -19,6 +19,12 @@ public interface MetricsService {
 
     void recordDegradeL2();
 
+    void recordSearchHit();
+
+    void recordSearchDegradeL1();
+
+    void recordSearchDegradeL2();
+
     /**
      * 当前指标快照（供监控页与定时日志使用）
      */
