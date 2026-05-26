@@ -8,6 +8,7 @@ import com.campus.service.ProductSearchIndexService;
 import com.campus.service.ProductSearchService;
 import com.campus.search.SearchMode;
 import com.campus.search.SearchPageResult;
+import com.campus.search.SearchRecommendCriteria;
 import com.campus.search.embedding.EmbeddingService;
 import com.campus.search.redis.RedisStackVectorIndexService;
 import com.campus.service.MetricsService;
@@ -363,7 +364,12 @@ public class TestController {
                                           Integer categoryId,
                                           String mode,
                                           Integer pageNum,
-                                          Integer pageSize) {
+                                          Integer pageSize,
+                                          Double minPrice,
+                                          Double maxPrice,
+                                          Integer maxPublishDays,
+                                          String sortBy,
+                                          Integer userId) {
         Map<String, Object> result = new HashMap<>();
         if (productSearchService == null) {
             result.put("success", false);
@@ -378,8 +384,16 @@ public class TestController {
         SearchMode searchMode = SearchMode.from(mode);
         int pn = pageNum == null ? 1 : pageNum;
         int ps = pageSize == null ? 12 : pageSize;
-        SearchPageResult page = productSearchService.search(keyword, categoryId, searchMode, pn, ps);
+        SearchRecommendCriteria criteria = new SearchRecommendCriteria();
+        criteria.setMinPrice(minPrice);
+        criteria.setMaxPrice(maxPrice);
+        criteria.setMaxPublishDays(maxPublishDays);
+        criteria.setSortBy(SearchRecommendCriteria.parseSortBy(sortBy));
+        criteria.setUserId(userId);
+        SearchPageResult page = productSearchService.search(keyword, categoryId, searchMode, pn, ps, criteria);
         result.put("success", true);
+        result.put("sortBy", criteria.getSortBy().name());
+        result.put("rankScores", page.getRankScores());
         result.put("searchMode", page.getSearchMode().name());
         result.put("engine", page.getEngine());
         result.put("degradeLevel", page.getDegradeLevel());

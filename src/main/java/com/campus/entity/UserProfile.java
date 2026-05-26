@@ -3,6 +3,7 @@ package com.campus.entity;
 import lombok.Data;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -85,8 +86,17 @@ public class UserProfile implements Serializable {
         /** 浏览过的最高价格 */
         private Double maxPrice;
 
-        /** 平均浏览价格 */
+        /** 平均浏览价格（加权中心 / P50） */
         private Double avgPrice;
+
+        /**
+         * 价格档位浏览权重（key 为档位上界字符串，如 "100" 表示 (60,100] 元）
+         * 用于按频次推导偏好区间，避免极值拉宽 min–max
+         */
+        private Map<String, Integer> bandWeights = new LinkedHashMap<>();
+
+        /** 档位累计浏览权重 */
+        private Integer totalBrowseWeight;
 
         public PriceRange() {
             this.minPrice = Double.MAX_VALUE;

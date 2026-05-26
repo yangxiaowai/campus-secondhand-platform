@@ -31,11 +31,22 @@ public class SearchPageResult {
     private final Map<Integer, Double> scores;
     private final String semanticEngine;
     private final String embeddingModel;
+    /** 综合推荐分（重排后）：商品ID → 0~1 */
+    private final Map<Integer, Double> rankScores;
 
     public SearchPageResult(List<Product> list, int pageNum, int pageSize, long total,
                             SearchMode searchMode, String engine, String degradeLevel,
                             long tookMs, int shardCount, Map<Integer, Double> scores,
                             String semanticEngine, String embeddingModel) {
+        this(list, pageNum, pageSize, total, searchMode, engine, degradeLevel, tookMs, shardCount,
+                scores, semanticEngine, embeddingModel, Collections.emptyMap());
+    }
+
+    public SearchPageResult(List<Product> list, int pageNum, int pageSize, long total,
+                            SearchMode searchMode, String engine, String degradeLevel,
+                            long tookMs, int shardCount, Map<Integer, Double> scores,
+                            String semanticEngine, String embeddingModel,
+                            Map<Integer, Double> rankScores) {
         this.list = list != null ? list : Collections.emptyList();
         this.pageNum = Math.max(1, pageNum);
         this.pageSize = Math.max(1, pageSize);
@@ -54,6 +65,7 @@ public class SearchPageResult {
         this.scores = scores;
         this.semanticEngine = semanticEngine != null ? semanticEngine : "";
         this.embeddingModel = embeddingModel != null ? embeddingModel : "";
+        this.rankScores = rankScores != null ? rankScores : Collections.emptyMap();
     }
 
     public SearchPageResult(List<Product> list, int pageNum, int pageSize, long total,
@@ -165,5 +177,9 @@ public class SearchPageResult {
 
     public String getEmbeddingModel() {
         return embeddingModel;
+    }
+
+    public Map<Integer, Double> getRankScores() {
+        return rankScores;
     }
 }

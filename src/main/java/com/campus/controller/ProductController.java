@@ -9,6 +9,7 @@ import com.campus.service.ProductService;
 import com.campus.service.DegradeService;
 import com.campus.search.SearchMode;
 import com.campus.search.SearchPageResult;
+import com.campus.search.SearchRecommendCriteria;
 import com.campus.service.ProductSearchService;
 import com.campus.service.RecommendService;
 import com.campus.service.UserProfileService;
@@ -78,17 +79,29 @@ public class ProductController {
                        String keyword,
                        Integer categoryId,
                        @RequestParam(defaultValue = "HYBRID") String searchMode,
+                       Double minPrice,
+                       Double maxPrice,
+                       Integer maxPublishDays,
+                       @RequestParam(defaultValue = "BEST_FIT") String sortBy,
                        String errorMsg,
-                       Model model) {
+                       Model model,
+                       HttpSession session) {
         SearchMode mode = SearchMode.from(searchMode);
+        Integer cat = (categoryId != null && categoryId == 0) ? null : categoryId;
+        SearchRecommendCriteria criteria = buildSearchCriteria(session, minPrice, maxPrice, maxPublishDays, sortBy);
         SearchPageResult searchResult = productSearchService.search(
-                keyword, categoryId, mode, pageNum, pageSize);
+                keyword, cat, mode, pageNum, pageSize, criteria);
         model.addAttribute("searchResult", searchResult);
         model.addAttribute("pageInfo", searchResult);
         model.addAttribute("categories", categoryService.findAll());
         model.addAttribute("keyword", keyword);
         model.addAttribute("categoryId", categoryId);
         model.addAttribute("searchMode", mode.name());
+        model.addAttribute("minPrice", minPrice);
+        model.addAttribute("maxPrice", maxPrice);
+        model.addAttribute("maxPublishDays", maxPublishDays);
+        model.addAttribute("sortBy", criteria.getSortBy().name());
+        model.addAttribute("rankScores", searchResult.getRankScores());
         if (errorMsg != null && !errorMsg.isEmpty()) {
             model.addAttribute("errorMsg", errorMsg);
         }
@@ -105,16 +118,25 @@ public class ProductController {
                                          Integer categoryId,
                                          @RequestParam(defaultValue = "HYBRID") String searchMode,
                                          @RequestParam(defaultValue = "1") Integer pageNum,
-                                         @RequestParam(defaultValue = "12") Integer pageSize) {
+                                         @RequestParam(defaultValue = "12") Integer pageSize,
+                                         Double minPrice,
+                                         Double maxPrice,
+                                         Integer maxPublishDays,
+                                         @RequestParam(defaultValue = "BEST_FIT") String sortBy,
+                                         HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         SearchMode mode = SearchMode.from(searchMode);
-        SearchPageResult page = productSearchService.search(keyword, categoryId, mode, pageNum, pageSize);
+        Integer cat = (categoryId != null && categoryId == 0) ? null : categoryId;
+        SearchRecommendCriteria criteria = buildSearchCriteria(session, minPrice, maxPrice, maxPublishDays, sortBy);
+        SearchPageResult page = productSearchService.search(keyword, cat, mode, pageNum, pageSize, criteria);
         result.put("success", true);
         result.put("data", page.getList());
         result.put("total", page.getTotal());
         result.put("pageNum", page.getPageNum());
         result.put("pageSize", page.getPageSize());
         result.put("searchMode", page.getSearchMode().name());
+        result.put("sortBy", criteria.getSortBy().name());
+        result.put("rankScores", page.getRankScores());
         result.put("engine", page.getEngine());
         result.put("degradeLevel", page.getDegradeLevel());
         result.put("tookMs", page.getTookMs());
@@ -124,6 +146,21 @@ public class ProductController {
         result.put("semanticEngine", page.getSemanticEngine());
         result.put("embeddingModel", page.getEmbeddingModel());
         return result;
+    }
+
+    private SearchRecommendCriteria buildSearchCriteria(HttpSession session,
+                                                        Double minPrice, Double maxPrice,
+                                                        Integer maxPublishDays, String sortBy) {
+        SearchRecommendCriteria criteria = new SearchRecommendCriteria();
+        criteria.setMinPrice(minPrice);
+        criteria.setMaxPrice(maxPrice);
+        criteria.setMaxPublishDays(maxPublishDays);
+        criteria.setSortBy(SearchRecommendCriteria.parseSortBy(sortBy));
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user != null) {
+            criteria.setUserId(user.getId());
+        }
+        return criteria;
     }
 
     /**
