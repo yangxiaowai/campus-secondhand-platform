@@ -3,6 +3,7 @@ package com.campus.service.impl;
 import com.campus.entity.UserProfile;
 import com.campus.service.MatchService;
 import com.campus.service.UserProfileService;
+import com.campus.util.PricePreferenceHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -52,32 +53,7 @@ public class MatchServiceImpl implements MatchService {
             return 0.0;
         }
         UserProfile.PriceRange range = userProfileService.getPriceRange(userId);
-        if (range == null) {
-            return 0.5;
-        }
-        Double min = range.getMinPrice();
-        Double max = range.getMaxPrice();
-        if (min == null || max == null) {
-            return 0.5;
-        }
-        // 无有效浏览价格区间（初始空画像）
-        if (max <= 0 || min >= Double.MAX_VALUE / 2) {
-            return 0.5;
-        }
-        if (min > max) {
-            return 0.5;
-        }
-        if (productPrice >= min && productPrice <= max) {
-            return 1.0;
-        }
-        double span = Math.max(max - min, 1.0);
-        double dist;
-        if (productPrice < min) {
-            dist = min - productPrice;
-        } else {
-            dist = productPrice - max;
-        }
-        return 1.0 / (1.0 + dist / span);
+        return PricePreferenceHelper.preferenceScore(range, productPrice);
     }
 
     /**

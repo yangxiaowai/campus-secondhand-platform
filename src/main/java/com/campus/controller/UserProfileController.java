@@ -10,11 +10,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import com.campus.service.InboxService;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpSession;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +45,9 @@ public class UserProfileController {
 
     @Autowired
     private DegradeService degradeService;
+
+    @Autowired
+    private InboxService inboxService;
     /**
      * 获取当前登录用户的兴趣画像
      * 
@@ -165,8 +170,7 @@ public class UserProfileController {
     }
 
     /**
-     * 成员B：推荐收件箱（Redis ZSet，按匹配度降序）
-     * 用于验收「发布后目标用户收件箱出现该商品」
+     * 成员4：推荐收件箱（Redis ZSet，按匹配度降序，含已读状态）
      */
     @RequestMapping("/inbox")
     @ResponseBody
@@ -176,7 +180,128 @@ public class UserProfileController {
             return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
         }
         List<Map<String, Object>> rows = degradeService.inboxForUser(user.getId(), 50);
+        enrichReadFlags(user.getId(), rows);
         return Result.success("推荐收件箱", rows);
+    }
+
+    /**
+     * 收件箱状态：未读数、免打扰
+     */
+    @RequestMapping("/inbox/status")
+    @ResponseBody
+    public Result<Map<String, Object>> getInboxStatus(HttpSession session) {
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        Map<String, Object> status = new HashMap<>();
+        status.put("unreadCount", inboxService.getUnreadCount(user.getId()));
+        status.put("doNotDisturb", inboxService.isDoNotDisturb(user.getId()));
+        return Result.success(status);
+    }
+
+    /**
+     * 轮询新推荐通知（前端每几秒调用，实现近实时提醒）
+     */
+    @RequestMapping("/inbox/poll")
+    @ResponseBody
+    public Result<Map<String, Object>> pollInbox(HttpSession session,
+                                                 @RequestParam(value = "since", defaultValue = "0") long since) {
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("notifications", inboxService.pollNotifications(user.getId(), since));
+        data.put("unreadCount", inboxService.getUnreadCount(user.getId()));
+        data.put("doNotDisturb", inboxService.isDoNotDisturb(user.getId()));
+        data.put("serverTime", System.currentTimeMillis());
+        return Result.success(data);
+    }
+
+    /**
+     * 单条已读（点击商品时）
+     */
+    @RequestMapping(value = "/inbox/read-one", method = RequestMethod.POST)
+    @ResponseBody
+    public Result<Map<String, Object>> markInboxOneRead(HttpSession session,
+                                                       @RequestParam("productId") Integer productId) {
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        inboxService.markRead(user.getId(), productId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("unreadCount", inboxService.getUnreadCount(user.getId()));
+        return Result.success("已标为已读", data);
+    }
+
+    /**
+     * 一键已读
+     */
+    @RequestMapping(value = "/inbox/read-all", method = RequestMethod.POST)
+    @ResponseBody
+    public Result<Map<String, Object>> markInboxAllRead(HttpSession session) {
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        inboxService.markAllRead(user.getId());
+        Map<String, Object> data = new HashMap<>();
+        data.put("unreadCount", 0);
+        return Result.success("已全部标为已读", data);
+    }
+
+    /**
+     * 免打扰开关
+     */
+    @RequestMapping(value = "/inbox/dnd", method = RequestMethod.POST)
+    @ResponseBody
+    public Result<Map<String, Object>> setInboxDnd(HttpSession session,
+                                                  @RequestParam("enabled") boolean enabled) {
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user == null) {
+            return Result.error(Result.CODE_UNAUTHORIZED, "请先登录");
+        }
+        inboxService.setDoNotDisturb(user.getId(), enabled);
+        Map<String, Object> data = new HashMap<>();
+        data.put("doNotDisturb", enabled);
+        return Result.success(enabled ? "已开启免打扰" : "已关闭免打扰", data);
+    }
+
+    private void enrichReadFlags(Integer userId, List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (Map<String, Object> row : rows) {
+            if (row == null) {
+                continue;
+            }
+            if (!"inbox".equals(String.valueOf(row.get("source")))) {
+                row.put("read", true);
+                continue;
+            }
+            Integer productId = toProductId(row.get("productId"));
+            if (productId == null) {
+                row.put("read", true);
+            } else {
+                row.put("read", inboxService.isRead(userId, productId));
+            }
+        }
+    }
+
+    private static Integer toProductId(Object pid) {
+        if (pid instanceof Number) {
+            return ((Number) pid).intValue();
+        }
+        if (pid == null) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(String.valueOf(pid));
+        } catch (Exception e) {
+            return null;
+        }
     }
 
 }

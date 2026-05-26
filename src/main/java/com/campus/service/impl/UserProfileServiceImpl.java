@@ -6,6 +6,7 @@ import com.campus.entity.Product;
 import com.campus.entity.UserProfile;
 import com.campus.service.IndexService;
 import com.campus.service.UserProfileService;
+import com.campus.util.PricePreferenceHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -155,9 +156,11 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public UserProfile.PriceRange getPriceRange(Integer userId) {
         UserProfile profile = getProfile(userId);
-        return profile.getPriceRange() != null
+        UserProfile.PriceRange range = profile.getPriceRange() != null
                 ? profile.getPriceRange()
                 : new UserProfile.PriceRange();
+        PricePreferenceHelper.refreshDerived(range);
+        return range;
     }
 
     @Override
@@ -198,29 +201,14 @@ public class UserProfileServiceImpl implements UserProfileService {
                 catWeights.merge(categoryId, 1, Integer::sum);
             }
 
-            // 3. 更新价格区间
+            // 3. 更新价格偏好（按档位累计浏览次数，再推导 P15–P85 偏好带）
             if (price != null) {
                 UserProfile.PriceRange range = profile.getPriceRange();
                 if (range == null) {
                     range = new UserProfile.PriceRange();
                     profile.setPriceRange(range);
                 }
-                if (range.getMinPrice() == null) {
-                    range.setMinPrice(Double.MAX_VALUE);
-                }
-                if (range.getMaxPrice() == null) {
-                    range.setMaxPrice(0.0);
-                }
-                if (price < range.getMinPrice()) range.setMinPrice(price);
-                if (price > range.getMaxPrice()) range.setMaxPrice(price);
-                // 更新平均价格（移动平均）
-                double oldAvg = range.getAvgPrice() == null ? 0.0 : range.getAvgPrice();
-                int count = profile.getBrowseCount() == null ? 0 : profile.getBrowseCount();
-                if (count > 0) {
-                    range.setAvgPrice((oldAvg * count + price) / (count + 1));
-                } else {
-                    range.setAvgPrice(price);
-                }
+                PricePreferenceHelper.recordPrice(range, price, 1);
             }
 
             // 4. 更新关键词频次
@@ -278,28 +266,13 @@ public class UserProfileServiceImpl implements UserProfileService {
                 catWeights.merge(categoryId, 3, Integer::sum);
             }
 
-            // 更新价格区间（同浏览）
             if (price != null) {
                 UserProfile.PriceRange range = profile.getPriceRange();
                 if (range == null) {
                     range = new UserProfile.PriceRange();
                     profile.setPriceRange(range);
                 }
-                if (range.getMinPrice() == null) {
-                    range.setMinPrice(Double.MAX_VALUE);
-                }
-                if (range.getMaxPrice() == null) {
-                    range.setMaxPrice(0.0);
-                }
-                if (price < range.getMinPrice()) range.setMinPrice(price);
-                if (price > range.getMaxPrice()) range.setMaxPrice(price);
-                double oldAvg = range.getAvgPrice() == null ? 0.0 : range.getAvgPrice();
-                int count = profile.getBrowseCount() == null ? 0 : profile.getBrowseCount();
-                if (count > 0) {
-                    range.setAvgPrice((oldAvg * count + price) / (count + 1));
-                } else {
-                    range.setAvgPrice(price);
-                }
+                PricePreferenceHelper.recordPrice(range, price, 3);
             }
 
             // 更新关键词
@@ -479,21 +452,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 profile.setCategoryWeights(new HashMap<>());
             }
 
-            // 解析价格区间
-            Object priceObj = entries.get(FIELD_PRICE_RANGE);
-            if (priceObj instanceof Map) {
-                Map<?, ?> priceMap = (Map<?, ?>) priceObj;
-                UserProfile.PriceRange range = new UserProfile.PriceRange();
-                Object min = priceMap.get("min");
-                Object max = priceMap.get("max");
-                Object avg = priceMap.get("avg");
-                if (min != null) range.setMinPrice(Double.parseDouble(String.valueOf(min)));
-                if (max != null) range.setMaxPrice(Double.parseDouble(String.valueOf(max)));
-                if (avg != null) range.setAvgPrice(Double.parseDouble(String.valueOf(avg)));
-                profile.setPriceRange(range);
-            } else {
-                profile.setPriceRange(new UserProfile.PriceRange());
-            }
+            profile.setPriceRange(parsePriceRangeFromMap(entries.get(FIELD_PRICE_RANGE)));
 
             // 解析关键词
             Object kwObj = entries.get(FIELD_KEYWORDS);
@@ -565,10 +524,17 @@ public class UserProfileServiceImpl implements UserProfileService {
                 if (range.getMaxPrice() == null) {
                     range.setMaxPrice(0.0);
                 }
+                PricePreferenceHelper.refreshDerived(range);
                 Map<String, Object> priceMap = new HashMap<>();
                 priceMap.put("min", range.getMinPrice());
                 priceMap.put("max", range.getMaxPrice());
                 priceMap.put("avg", range.getAvgPrice());
+                if (range.getBandWeights() != null && !range.getBandWeights().isEmpty()) {
+                    priceMap.put("bands", range.getBandWeights());
+                }
+                if (range.getTotalBrowseWeight() != null) {
+                    priceMap.put("totalWeight", range.getTotalBrowseWeight());
+                }
                 hash.put(FIELD_PRICE_RANGE, priceMap);
             }
 
@@ -645,27 +611,16 @@ public class UserProfileServiceImpl implements UserProfileService {
             // 目前先用 Product 表的数据做基础重建
             List<Product> userProducts = productMapper.findByUserId(userId);
             if (userProducts != null && !userProducts.isEmpty()) {
-                double priceSum = 0.0;
-                int priceCount = 0;
-
                 for (Product p : userProducts) {
                     if (p.getCategoryId() != null) {
                         profile.getCategoryWeights().merge(p.getCategoryId(), 1, Integer::sum);
                     }
                     if (p.getPrice() != null) {
-                        UserProfile.PriceRange range = profile.getPriceRange();
-                        double price = p.getPrice().doubleValue();
-                        if (price < range.getMinPrice()) range.setMinPrice(price);
-                        if (price > range.getMaxPrice()) range.setMaxPrice(price);
-                        priceSum += price;
-                        priceCount++;
+                        PricePreferenceHelper.recordPrice(profile.getPriceRange(),
+                                p.getPrice().doubleValue(), 1);
                     }
                 }
-
-                // 计算平均价格
-                if (priceCount > 0) {
-                    profile.getPriceRange().setAvgPrice(priceSum / priceCount);
-                }
+                PricePreferenceHelper.refreshDerived(profile.getPriceRange());
             }
 
             profile.setVersion(1L);
@@ -708,21 +663,7 @@ public class UserProfileServiceImpl implements UserProfileService {
                 profile.setCategoryWeights(new HashMap<>());
             }
 
-            // 解析价格区间
-            Object priceObj = data.get(FIELD_PRICE_RANGE);
-            if (priceObj instanceof Map) {
-                Map<?, ?> priceMap = (Map<?, ?>) priceObj;
-                UserProfile.PriceRange range = new UserProfile.PriceRange();
-                Object min = priceMap.get("min");
-                Object max = priceMap.get("max");
-                Object avg = priceMap.get("avg");
-                if (min != null) range.setMinPrice(Double.parseDouble(String.valueOf(min)));
-                if (max != null) range.setMaxPrice(Double.parseDouble(String.valueOf(max)));
-                if (avg != null) range.setAvgPrice(Double.parseDouble(String.valueOf(avg)));
-                profile.setPriceRange(range);
-            } else {
-                profile.setPriceRange(new UserProfile.PriceRange());
-            }
+            profile.setPriceRange(parsePriceRangeFromMap(data.get(FIELD_PRICE_RANGE)));
 
             // 解析关键词
             Object kwObj = data.get(FIELD_KEYWORDS);
@@ -760,6 +701,48 @@ public class UserProfileServiceImpl implements UserProfileService {
             log.warn("从 JSON 解析画像失败，userId={}", userId, e);
             return null;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private UserProfile.PriceRange parsePriceRangeFromMap(Object priceObj) {
+        UserProfile.PriceRange range = new UserProfile.PriceRange();
+        if (!(priceObj instanceof Map)) {
+            return range;
+        }
+        Map<?, ?> priceMap = (Map<?, ?>) priceObj;
+        Object min = priceMap.get("min");
+        Object max = priceMap.get("max");
+        Object avg = priceMap.get("avg");
+        if (min != null) {
+            range.setMinPrice(Double.parseDouble(String.valueOf(min)));
+        }
+        if (max != null) {
+            range.setMaxPrice(Double.parseDouble(String.valueOf(max)));
+        }
+        if (avg != null) {
+            range.setAvgPrice(Double.parseDouble(String.valueOf(avg)));
+        }
+        Object bands = priceMap.get("bands");
+        if (bands instanceof Map) {
+            Map<String, Integer> bandWeights = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) bands).entrySet()) {
+                try {
+                    bandWeights.put(String.valueOf(entry.getKey()),
+                            Integer.parseInt(String.valueOf(entry.getValue())));
+                } catch (Exception ignored) {
+                }
+            }
+            range.setBandWeights(bandWeights);
+        }
+        Object totalWeight = priceMap.get("totalWeight");
+        if (totalWeight != null) {
+            try {
+                range.setTotalBrowseWeight(Integer.parseInt(String.valueOf(totalWeight)));
+            } catch (Exception ignored) {
+            }
+        }
+        PricePreferenceHelper.refreshDerived(range);
+        return range;
     }
 
     /**
