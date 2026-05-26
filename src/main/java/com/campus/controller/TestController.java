@@ -12,7 +12,7 @@ import com.campus.search.SearchRecommendCriteria;
 import com.campus.search.embedding.EmbeddingService;
 import com.campus.search.redis.RedisStackVectorIndexService;
 import com.campus.service.MetricsService;
-import com.campus.service.RecommendDemoSeedService;
+import com.campus.service.NoIndexMatchService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
 import io.minio.ListObjectsArgs;
@@ -85,22 +85,7 @@ public class TestController {
     private RedisStackVectorIndexService redisStackVectorIndexService;
 
     @Autowired(required = false)
-    private RecommendDemoSeedService recommendDemoSeedService;
-
-    /**
-     * 成员4：一键注入推荐/收件箱演示数据
-     */
-    @GetMapping("/seed/recommend")
-    @ResponseBody
-    public Map<String, Object> seedRecommend() {
-        if (recommendDemoSeedService == null) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", false);
-            result.put("message", "RecommendDemoSeedService 未注入");
-            return result;
-        }
-        return recommendDemoSeedService.seedRecommendDemo();
-    }
+    private NoIndexMatchService noIndexMatchService;
 
     /**
      * 测试 Redis 连接
@@ -375,6 +360,7 @@ public class TestController {
     }
 
     /**
+<<<<<<< Updated upstream
      * 商品搜索验收：关键词 / 语义 / 混合
      */
     @GetMapping("/search")
@@ -477,5 +463,29 @@ public class TestController {
         result.put("success", true);
         result.put("message", "商品搜索索引全量重建完成，请访问 /test/search?keyword=教材 验收");
         return result;
+    }
+
+    /**
+     * 无索引推荐接口（退阶版）
+     * 
+     * 不使用 Redis 两级索引，遍历所有用户 × 所有商品，
+     * 逐一计算匹配度并写入收件箱。
+     * 
+     * 访问示例：
+     *   GET /test/noindex/match?minScore=0.12
+     * 
+     * 返回统计信息便于与有索引方案对比性能。
+     */
+    @GetMapping("/noindex/match")
+    @ResponseBody
+    public Map<String, Object> testNoIndexMatch(Double minScore) {
+        if (noIndexMatchService == null) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "NoIndexMatchService 未注入");
+            return result;
+        }
+        double threshold = minScore == null ? 0.12 : minScore;
+        return noIndexMatchService.matchAll(threshold);
     }
 }
