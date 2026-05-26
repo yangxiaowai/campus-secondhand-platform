@@ -16,7 +16,7 @@ import java.util.Locale;
 @PropertySource("classpath:redis-config.properties")
 public class LocalNgramEmbeddingService implements EmbeddingService {
 
-    @Value("${search.embedding.dimensions:384}")
+    @Value("${search.embedding.dimensions:768}")
     private int dimensions;
 
     @Override

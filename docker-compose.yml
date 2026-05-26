@@ -26,29 +26,21 @@ services:
       retries: 30
       start_period: 25s
 
+  # Redis Stack：兼容普通 Redis 命令 + RediSearch 向量 KNN（语义搜索）
+  # 容器内服务名仍为 redis，Tomcat 无需改 redis.host
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:latest
     command: >
-      redis-server
+      redis-stack-server
       --maxclients 10000
       --tcp-keepalive 60
       --timeout 0
-    # 映射到本机 6380，避免与本机已占用的 6379（如本机 Redis）冲突；容器内仍为 6379，应用用服务名 redis 连接不变
+      --save 60 1
+    # 映射到本机 6380，避免与本机 6379 冲突；容器内应用连接 redis:6379
     ports:
       - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  # 可选：Redis Stack（RediSearch 向量 KNN）。启用：docker compose --profile stack up -d redis-stack
-  # 并将应用 redis.host 指向 redis-stack（Docker 内）或本机 6381
-  redis-stack:
-    image: redis/redis-stack-server:latest
-    profiles: ["stack"]
-    ports:
-      - "6381:6379"
+    volumes:
+      - campus_redis_stack_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -89,6 +81,8 @@ services:
     depends_on:
       tomcat1:
         condition: service_started
+      redis:
+        condition: service_healthy
     ports:
       - "8081:8080"
     volumes:
@@ -98,3 +92,4 @@ volumes:
   campus_mysql_data:
   campus_minio_data:
   campus_upload_data:
+  campus_redis_stack_data:

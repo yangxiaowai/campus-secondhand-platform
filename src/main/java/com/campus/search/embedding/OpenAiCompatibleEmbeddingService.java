@@ -36,7 +36,7 @@ public class OpenAiCompatibleEmbeddingService implements EmbeddingService {
     @Value("${search.embedding.openai.model:text-embedding-3-small}")
     private String model;
 
-    @Value("${search.embedding.dimensions:384}")
+    @Value("${search.embedding.dimensions:768}")
     private int dimensions;
 
     private final ObjectMapper objectMapper = new ObjectMapper();

@@ -34,7 +34,7 @@ public class OllamaEmbeddingService implements EmbeddingService {
     @Value("${search.embedding.ollama.model:nomic-embed-text}")
     private String model;
 
-    @Value("${search.embedding.dimensions:384}")
+    @Value("${search.embedding.dimensions:768}")
     private int dimensions;
 
     private final ObjectMapper objectMapper = new ObjectMapper();

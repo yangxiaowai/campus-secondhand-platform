@@ -32,7 +32,7 @@ public class RedisStackVectorIndexService {
     @Value("${search.redis-stack.enabled:true}")
     private boolean stackEnabled;
 
-    @Value("${search.embedding.dimensions:384}")
+    @Value("${search.embedding.dimensions:768}")
     private int dimensions;
 
     @Autowired(required = false)
