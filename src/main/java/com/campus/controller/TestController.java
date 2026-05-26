@@ -12,6 +12,7 @@ import com.campus.search.SearchRecommendCriteria;
 import com.campus.search.embedding.EmbeddingService;
 import com.campus.search.redis.RedisStackVectorIndexService;
 import com.campus.service.MetricsService;
+import com.campus.service.RecommendDemoSeedService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
 import io.minio.ListObjectsArgs;
@@ -82,6 +83,24 @@ public class TestController {
 
     @Autowired(required = false)
     private RedisStackVectorIndexService redisStackVectorIndexService;
+
+    @Autowired(required = false)
+    private RecommendDemoSeedService recommendDemoSeedService;
+
+    /**
+     * 成员4：一键注入推荐/收件箱演示数据
+     */
+    @GetMapping("/seed/recommend")
+    @ResponseBody
+    public Map<String, Object> seedRecommend() {
+        if (recommendDemoSeedService == null) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "RecommendDemoSeedService 未注入");
+            return result;
+        }
+        return recommendDemoSeedService.seedRecommendDemo();
+    }
 
     /**
      * 测试 Redis 连接

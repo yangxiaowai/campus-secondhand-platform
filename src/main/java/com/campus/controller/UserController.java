@@ -220,6 +220,14 @@ public class UserController {
     }
 
     /**
+     * 推荐收件箱页面
+     */
+    @RequestMapping("/inbox/page")
+    public String inboxPage() {
+        return "user/inbox";
+    }
+
+    /**
      * 更新用户信息
      */
     @Log("更新个人信息")

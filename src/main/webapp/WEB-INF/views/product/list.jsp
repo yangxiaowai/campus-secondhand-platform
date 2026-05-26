@@ -17,6 +17,10 @@
                 <c:choose>
                     <c:when test="${sessionScope.user != null}">
                         <span class="mr-3 text-muted">欢迎，${sessionScope.user.nickname}</span>
+                        <a href="${ctx}/user/inbox/page" class="btn btn-sm btn-outline-info mr-2 position-relative">
+                            推荐收件箱
+                            <span data-inbox-badge class="badge badge-danger inbox-nav-badge">0</span>
+                        </a>
                         <a href="${ctx}/user/center" class="btn btn-sm btn-outline-primary mr-2">个人中心</a>
                         <a href="${ctx}/product/publish" class="btn btn-sm btn-success mr-2">发布商品</a>
                         <c:if test="${sessionScope.user.role == 2}">
@@ -80,11 +84,12 @@
                                placeholder="偏好最高价 ¥" value="${maxPrice}" title="用于推荐排序，不隐藏其它商品">
                     </div>
                     <div class="col-md-2 mb-2">
-                        <select name="maxPublishDays" class="form-control form-control-sm" title="优先展示较新发布的商品">
+                        <select name="maxPublishDays" class="form-control form-control-sm" title="时效偏好：最新按发布日期排序；近N天为加权优先">
                             <option value="">时效不限</option>
+                            <option value="-1" ${maxPublishDays == -1 ? 'selected' : ''}>最新（按日期）</option>
+                            <option value="3" ${maxPublishDays == 3 ? 'selected' : ''}>优先近 3 天</option>
                             <option value="7" ${maxPublishDays == 7 ? 'selected' : ''}>优先近 7 天</option>
                             <option value="30" ${maxPublishDays == 30 ? 'selected' : ''}>优先近 30 天</option>
-                            <option value="90" ${maxPublishDays == 90 ? 'selected' : ''}>优先近 90 天</option>
                         </select>
                     </div>
                     <div class="col-md-2 mb-2">
@@ -133,7 +138,7 @@
                             </div>
                             <div class="d-flex justify-content-between align-items-center">
                                 <span class="price">¥${product.price}</span>
-                                <c:if test="${sessionScope.user != null && sortBy == 'BEST_FIT'}">
+                                <c:if test="${sessionScope.user != null && (sortBy == 'BEST_FIT' || maxPublishDays == -1)}">
                                     <c:set var="fitScore" value="${rankScores[product.id]}" />
                                     <c:if test="${not empty fitScore}">
                                         <span class="badge badge-primary" title="综合推荐分">推荐 ${fitScore}</span>
@@ -178,6 +183,10 @@
 
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+    <c:if test="${sessionScope.user != null}">
+        <script src="${ctx}/static/js/inbox-notify.js"></script>
+        <script>InboxNotify.start('${ctx}');</script>
+    </c:if>
 </body>
 </html>
 

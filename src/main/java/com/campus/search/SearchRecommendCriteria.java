@@ -52,6 +52,19 @@ public class SearchRecommendCriteria {
         this.maxPublishDays = maxPublishDays;
     }
 
+    /** 时效下拉选「最新」：按发布日期（到天）降序，同一天按综合推荐分 */
+    public boolean isLatestDayPrimarySort() {
+        return maxPublishDays != null && maxPublishDays == -1;
+    }
+
+    /** 近 N 天加权（7/30/3）；「最新」与「不限」不参与该加权 */
+    public Integer getPreferWithinDays() {
+        if (maxPublishDays == null || maxPublishDays <= 0 || isLatestDayPrimarySort()) {
+            return null;
+        }
+        return maxPublishDays;
+    }
+
     public SortBy getSortBy() {
         return sortBy != null ? sortBy : SortBy.BEST_FIT;
     }
@@ -89,6 +102,7 @@ public class SearchRecommendCriteria {
 
     public boolean hasAnyConstraint() {
         return minPrice != null || maxPrice != null
-                || (maxPublishDays != null && maxPublishDays > 0);
+                || (maxPublishDays != null && maxPublishDays > 0)
+                || isLatestDayPrimarySort();
     }
 }

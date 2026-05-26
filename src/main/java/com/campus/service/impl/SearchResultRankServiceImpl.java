@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
+
+import java.time.ZoneId;
 import java.util.*;
 
 /**
@@ -110,7 +112,7 @@ public class SearchResultRankServiceImpl implements SearchResultRankService {
                         kw);
             }
 
-            double freshness = freshnessScore(p.getCreateTime(), now, safe.getMaxPublishDays());
+            double freshness = freshnessScore(p.getCreateTime(), now, safe.getPreferWithinDays());
             double priceFit = computePriceFitScore(
                     safe, p.getPrice() != null ? p.getPrice().doubleValue() : null,
                     pricePrefMin, pricePrefMax);
@@ -123,7 +125,7 @@ public class SearchResultRankServiceImpl implements SearchResultRankService {
             ranked.add(new RankedProduct(p, finalScore, relevanceNorm, matchScore, freshness, priceFit));
         }
 
-        Comparator<RankedProduct> comparator = buildComparator(safe.getSortBy());
+        Comparator<RankedProduct> comparator = buildComparator(safe);
         ranked.sort(comparator);
 
         log.debug("[搜索重排] 候选{}件，排序后{}件，sortBy={}",
@@ -192,7 +194,15 @@ public class SearchResultRankServiceImpl implements SearchResultRankService {
         return 1.0 / (1.0 + dist / span);
     }
 
-    private static Comparator<RankedProduct> buildComparator(SearchRecommendCriteria.SortBy sortBy) {
+    private static Comparator<RankedProduct> buildComparator(SearchRecommendCriteria criteria) {
+        if (criteria != null && criteria.isLatestDayPrimarySort()) {
+            return Comparator
+                    .comparing((RankedProduct r) -> publishDayEpoch(r.getProduct().getCreateTime()),
+                            Comparator.reverseOrder())
+                    .thenComparing(Comparator.comparingDouble(RankedProduct::getFinalScore).reversed());
+        }
+        SearchRecommendCriteria.SortBy sortBy = criteria != null
+                ? criteria.getSortBy() : SearchRecommendCriteria.SortBy.BEST_FIT;
         if (sortBy == null) {
             sortBy = SearchRecommendCriteria.SortBy.BEST_FIT;
         }
@@ -232,5 +242,13 @@ public class SearchResultRankServiceImpl implements SearchResultRankService {
             return 1;
         }
         return v;
+    }
+
+    /** 发布日期（本地时区，忽略时分秒） */
+    private static long publishDayEpoch(Date createTime) {
+        if (createTime == null) {
+            return 0L;
+        }
+        return createTime.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay();
     }
 }
