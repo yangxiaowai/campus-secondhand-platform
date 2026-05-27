@@ -33,9 +33,9 @@ services:
       --maxclients 10000
       --tcp-keepalive 60
       --timeout 0
-    # 映射到本机 6780，避免与本机已占用的 6379（如本机 Redis）冲突；容器内仍为 6379，应用用服务名 redis 连接不变
+    # 映射到本机 16379，避免与本机已占用的端口冲突；容器内仍为 6379，应用用服务名 redis 连接不变
     ports:
-      - "6780:6379"
+      - "16379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

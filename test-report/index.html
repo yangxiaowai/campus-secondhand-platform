@@ -1,0 +1,147 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Campus Secondhand Platform - Full API Test Report</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; line-height: 1.6; }
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+h1 { text-align: center; padding: 30px 0; color: #1a1a2e; font-size: 28px; }
+h1 span { color: #e94560; }
+.summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; }
+.card { background: white; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.card .number { font-size: 36px; font-weight: 700; margin: 8px 0; }
+.card .label { font-size: 14px; color: #666; }
+.card.total .number { color: #1a1a2e; }
+.card.passed .number { color: #27ae60; }
+.card.failed .number { color: #e74c3c; }
+.card.rate .number { color: #3498db; }
+.section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.section h2 { font-size: 18px; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #f0f2f5; color: #1a1a2e; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f8f9fa; padding: 10px 12px; text-align: left; font-weight: 600; color: #555; border-bottom: 2px solid #e9ecef; }
+td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+tr:hover { background: #f8f9fa; }
+.pass { color: #27ae60; font-weight: 600; }
+.fail { color: #e74c3c; font-weight: 600; }
+.warn { color: #f39c12; font-weight: 600; }
+.path { font-family: 'Consolas', monospace; font-size: 12px; color: #e94560; }
+.error { color: #e74c3c; font-size: 12px; }
+.perf-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.perf-card { background: #f8f9fa; border-radius: 8px; padding: 16px; text-align: center; }
+.perf-card .metric { font-size: 24px; font-weight: 700; color: #1a1a2e; }
+.perf-card .unit { font-size: 12px; color: #999; }
+.perf-card .title { font-size: 13px; color: #666; margin-bottom: 8px; }
+.compare-bar { display: flex; align-items: center; margin: 8px 0; }
+.compare-bar .bar { height: 24px; border-radius: 4px; display: flex; align-items: center; padding: 0 8px; color: white; font-size: 12px; font-weight: 600; min-width: 60px; }
+.compare-bar .lbl { width: 140px; font-size: 13px; color: #555; }
+.bar-index { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+.bar-noindex { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+.timestamp { text-align: center; color: #999; font-size: 13px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1 id="main-title">Campus Secondhand Platform <span>Full API Test Report</span></h1>
+
+<div class="summary">
+<div class="card total"><div class="label" data-i18n="total">Total Tests</div><div class="number">49</div></div>
+<div class="card passed"><div class="label" data-i18n="passed">Passed</div><div class="number">49</div></div>
+<div class="card failed"><div class="label" data-i18n="failed">Failed</div><div class="number">0</div></div>
+<div class="card rate"><div class="label" data-i18n="rate">Pass Rate</div><div class="number">100%</div></div>
+</div>
+
+<div class="section">
+<h2 data-i18n="catStats">Category Statistics</h2>
+<table>
+<tr><th data-i18n="thCat">Category</th><th data-i18n="thTotal">Total</th><th data-i18n="thPassed">Passed</th><th data-i18n="thFailed">Failed</th><th data-i18n="thRate">Pass Rate</th></tr>
+<tr><td data-c='Admin'>Admin</td><td>4</td><td class='pass'>4</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='Infrastructure'>Infrastructure</td><td>5</td><td class='pass'>5</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='LoginRequired'>LoginRequired</td><td>6</td><td class='pass'>6</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='NoIndex'>NoIndex</td><td>1</td><td class='pass'></td><td class='fail'>0</td><td class='fail'>0%</td></tr><tr><td data-c='Product'>Product</td><td>12</td><td class='pass'>12</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='Recommendation'>Recommendation</td><td>7</td><td class='pass'>7</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='SearchEngine'>SearchEngine</td><td>7</td><td class='pass'>7</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='TwoLevelIndex'>TwoLevelIndex</td><td>4</td><td class='pass'>4</td><td class='fail'>0</td><td class='pass'>100%</td></tr><tr><td data-c='User'>User</td><td>3</td><td class='pass'>3</td><td class='fail'>0</td><td class='pass'>100%</td></tr>
+</table>
+</div>
+
+<div class="section">
+<h2 data-i18n="perfBench">Performance Benchmark</h2>
+<div class="perf-grid">
+<div class="perf-card"><div class="title" data-i18n="recAvg">Recommend Avg</div><div class="metric">19.6<span class="unit"> ms</span></div></div>
+<div class="perf-card"><div class="title" data-i18n="recP95">Recommend P95</div><div class="metric">24<span class="unit"> ms</span></div></div>
+<div class="perf-card"><div class="title" data-i18n="recMax">Recommend Max</div><div class="metric">24<span class="unit"> ms</span></div></div>
+<div class="perf-card"><div class="title" data-i18n="srchAvg">Search Avg</div><div class="metric">24<span class="unit"> ms</span></div></div>
+<div class="perf-card"><div class="title" data-i18n="srchP95">Search P95</div><div class="metric">30<span class="unit"> ms</span></div></div>
+<div class="perf-card"><div class="title" data-i18n="srchMax">Search Max</div><div class="metric">30<span class="unit"> ms</span></div></div>
+</div>
+</div>
+
+<div class="section">
+<h2 data-i18n="algoCompare">Algorithm Comparison: Two-Level Index vs No-Index Brute Force</h2>
+<div class="compare-bar">
+<div class="lbl" data-i18n="twoLevel">Two-Level Index</div>
+<div class="bar bar-index" style="width: 60px">19.6 ms</div>
+</div>
+<div class="compare-bar">
+<div class="lbl" data-i18n="noIndex">No-Index Brute Force</div>
+<div class="bar bar-noindex" style="width: 374px">37449 ms</div>
+</div>
+<p style="margin-top:12px; font-size:14px; color:#555;" data-i18n="speedup" data-speedup="1911">Two-Level Index is <strong>1911x</strong> faster than No-Index Brute Force</p>
+</div>
+
+<div class="section">
+<h2 data-i18n="apiDetails">API Test Details</h2>
+<table>
+<tr><th data-i18n="thStatus">Status</th><th data-i18n="thCat">Category</th><th data-i18n="thMethod">Method</th><th data-i18n="thPath">Path</th><th data-i18n="thDesc">Description</th><th>HTTP</th><th data-i18n="thLatency">Latency(ms)</th><th data-i18n="thError">Error</th></tr>
+<tr><td class='pass' data-s='PASS'>OK</td><td data-c='Infrastructure'>Infrastructure</td><td>GET</td><td class='path'>/test/redis</td><td data-d='Redis connectivity'>Redis connectivity</td><td>200</td><td>80.4</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Infrastructure'>Infrastructure</td><td>GET</td><td class='path'>/test/minio</td><td data-d='MinIO connectivity'>MinIO connectivity</td><td>200</td><td>47.6</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Infrastructure'>Infrastructure</td><td>GET</td><td class='path'>/test/session/set</td><td data-d='Session write'>Session write</td><td>200</td><td>25.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Infrastructure'>Infrastructure</td><td>GET</td><td class='path'>/test/session/get</td><td data-d='Session read'>Session read</td><td>200</td><td>23.2</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Infrastructure'>Infrastructure</td><td>GET</td><td class='path'>/monitor/metrics</td><td data-d='Monitor metrics'>Monitor metrics</td><td>200</td><td>21.3</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='User'>User</td><td>GET</td><td class='path'>/user/loginPage</td><td data-d='Login page'>Login page</td><td>200</td><td>27.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='User'>User</td><td>GET</td><td class='path'>/user/registerPage</td><td data-d='Register page'>Register page</td><td>200</td><td>24.7</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='User'>User</td><td>GET</td><td class='path'>/captcha/image</td><td data-d='Captcha image'>Captcha image</td><td>200</td><td>42.7</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (empty)'>Search (empty)</td><td>200</td><td>56.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (iPhone)'>Search (iPhone)</td><td>200</td><td>42.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (category+keyword)'>Search (category+keyword)</td><td>200</td><td>30</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (price range)'>Search (price range)</td><td>200</td><td>33.4</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (KEYWORD mode)'>Search (KEYWORD mode)</td><td>200</td><td>36.2</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (SEMANTIC mode)'>Search (SEMANTIC mode)</td><td>200</td><td>33</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (HYBRID mode)'>Search (HYBRID mode)</td><td>200</td><td>33</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (BEST_FIT sort)'>Search (BEST_FIT sort)</td><td>200</td><td>32.3</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (PRICE_ASC sort)'>Search (PRICE_ASC sort)</td><td>200</td><td>33.4</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/search</td><td data-d='Search (NEWEST sort)'>Search (NEWEST sort)</td><td>200</td><td>28.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/recommendations</td><td data-d='Recommendations (anonymous)'>Recommendations (anonymous)</td><td>200</td><td>27.7</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Product'>Product</td><td>GET</td><td class='path'>/product/updateStatus</td><td data-d='Update product status'>Update product status</td><td>200</td><td>38.5</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search</td><td data-d='Search API (phone)'>Search API (phone)</td><td>200</td><td>35</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search</td><td data-d='Search API (category+keyword)'>Search API (category+keyword)</td><td>200</td><td>31</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search</td><td data-d='Search API (semantic)'>Search API (semantic)</td><td>200</td><td>26.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search</td><td data-d='Search API (keyword)'>Search API (keyword)</td><td>200</td><td>25.6</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search</td><td data-d='Search API (hybrid)'>Search API (hybrid)</td><td>200</td><td>27.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search/embedding</td><td data-d='Embedding test'>Embedding test</td><td>200</td><td>23.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='SearchEngine'>SearchEngine</td><td>GET</td><td class='path'>/test/search/rebuild</td><td data-d='Search index rebuild'>Search index rebuild</td><td>200</td><td>900.3</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/recommend/record</td><td data-d='Record browse history'>Record browse history</td><td>200</td><td>28.1</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/recommend/list</td><td data-d='Recommend list (userId=2)'>Recommend list (userId=2)</td><td>200</td><td>26.2</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/recommend/list</td><td data-d='Recommend list (userId=5)'>Recommend list (userId=5)</td><td>200</td><td>21.4</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/recommend/list</td><td data-d='Recommend list (userId=10)'>Recommend list (userId=10)</td><td>200</td><td>34.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/recommend/cache</td><td data-d='User profile cache'>User profile cache</td><td>200</td><td>18.7</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/degrade/recommend</td><td data-d='Degrade recommend'>Degrade recommend</td><td>200</td><td>28.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Recommendation'>Recommendation</td><td>GET</td><td class='path'>/test/degrade/metrics</td><td data-d='Degrade metrics'>Degrade metrics</td><td>200</td><td>23.1</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='TwoLevelIndex'>TwoLevelIndex</td><td>GET</td><td class='path'>/test/index/stats</td><td data-d='Index stats (userId=2)'>Index stats (userId=2)</td><td>200</td><td>22.7</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='TwoLevelIndex'>TwoLevelIndex</td><td>GET</td><td class='path'>/test/index/stats</td><td data-d='Index stats (category=digital)'>Index stats (category=digital)</td><td>200</td><td>18</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='TwoLevelIndex'>TwoLevelIndex</td><td>GET</td><td class='path'>/test/index/stats</td><td data-d='Index stats (keyword=iPhone)'>Index stats (keyword=iPhone)</td><td>200</td><td>17.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='TwoLevelIndex'>TwoLevelIndex</td><td>GET</td><td class='path'>/test/index/rebuild</td><td data-d='Index rebuild'>Index rebuild</td><td>200</td><td>425.1</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='NoIndex'>NoIndex</td><td>GET</td><td class='path'>/test/noindex/match</td><td data-d='No-index brute match'>No-index brute match</td><td>200</td><td>37449.4</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/user/center</td><td data-d='User center (no login)'>User center (no login)</td><td>200</td><td>30.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/user/inbox</td><td data-d='Inbox (no login)'>Inbox (no login)</td><td>200</td><td>33.2</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/user/inbox/status</td><td data-d='Inbox status (no login)'>Inbox status (no login)</td><td>200</td><td>29.8</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/product/publish</td><td data-d='Publish page (no login)'>Publish page (no login)</td><td>200</td><td>27.6</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/product/history</td><td data-d='Browse history (no login)'>Browse history (no login)</td><td>200</td><td>27.9</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='LoginRequired'>LoginRequired</td><td>GET</td><td class='path'>/order/myOrders</td><td data-d='My orders (no login)'>My orders (no login)</td><td>200</td><td>27.6</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Admin'>Admin</td><td>GET</td><td class='path'>/admin/index</td><td data-d='Admin panel (no login)'>Admin panel (no login)</td><td>200</td><td>21</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Admin'>Admin</td><td>GET</td><td class='path'>/admin/users</td><td data-d='User management (no login)'>User management (no login)</td><td>200</td><td>20.1</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Admin'>Admin</td><td>GET</td><td class='path'>/admin/products</td><td data-d='Product management (no login)'>Product management (no login)</td><td>200</td><td>20.6</td><td>-</td></tr><tr><td class='pass' data-s='PASS'>OK</td><td data-c='Admin'>Admin</td><td>GET</td><td class='path'>/admin/orders</td><td data-d='Order management (no login)'>Order management (no login)</td><td>200</td><td>21.9</td><td>-</td></tr>
+</table>
+</div>
+
+<div class="timestamp">
+Generated: 2026-05-27 15:31:50 | Duration: 41.9s | Target: http://localhost:8080
+</div>
+</div>
+<script>
+var zh={
+total:"\u603B\u6D4B\u8BD5\u6570",passed:"\u901A\u8FC7",failed:"\u5931\u8D25",rate:"\u901A\u8FC7\u7387",
+catStats:"\u5206\u7C7B\u7EDF\u8BA1",thCat:"\u5206\u7C7B",thTotal:"\u603B\u6570",thPassed:"\u901A\u8FC7",thFailed:"\u5931\u8D25",thRate:"\u901A\u8FC7\u7387",
+perfBench:"\u6027\u80FD\u57FA\u51C6",recAvg:"\u63A8\u8350\u63A5\u53E3 \u5E73\u5747\u54CD\u5E94",recP95:"\u63A8\u8350\u63A5\u53E3 P95",recMax:"\u63A8\u8350\u63A5\u53E3 \u6700\u5927",
+srchAvg:"\u641C\u7D22\u63A5\u53E3 \u5E73\u5747\u54CD\u5E94",srchP95:"\u641C\u7D22\u63A5\u53E3 P95",srchMax:"\u641C\u7D22\u63A5\u53E3 \u6700\u5927",
+algoCompare:"\u7B97\u6CD5\u6027\u80FD\u5BF9\u6BD4\uFF1A\u4E24\u7EA7\u7D22\u5F15 vs \u65E0\u7D22\u5F15\u66B4\u529B\u5339\u914D",
+twoLevel:"\u4E24\u7EA7\u7D22\u5F15\u63A8\u8350",noIndex:"\u65E0\u7D22\u5F15\u66B4\u529B\u5339\u914D",
+apiDetails:"\u63A5\u53E3\u6D4B\u8BD5\u660E\u7EC6",thStatus:"\u72B6\u6001",thMethod:"\u65B9\u6CD5",thPath:"\u8DEF\u5F84",thDesc:"\u63CF\u8FF0",thLatency:"\u8017\u65F6(ms)",thError:"\u9519\u8BEF"
+};
+var catZh={"Infrastructure":"\u57FA\u7840\u8BBE\u65BD","User":"\u7528\u6237\u6A21\u5757","Product":"\u5546\u54C1\u6A21\u5757","SearchEngine":"\u641C\u7D22\u5F15\u64CE","Recommendation":"\u63A8\u8350\u7B97\u6CD5","TwoLevelIndex":"\u4E24\u7EA7\u7D22\u5F15","NoIndex":"\u65E0\u7D22\u5F15\u5339\u914D","LoginRequired":"\u767B\u5F55\u62E6\u622A","Admin":"\u7BA1\u7406\u5458\u63A5\u53E3"};
+var descZh={
+"Redis connectivity":"Redis\u8FDE\u901A\u6027","MinIO connectivity":"MinIO\u8FDE\u901A\u6027",
+"Session write":"Session\u5199\u5165","Session read":"Session\u8BFB\u53D6","Monitor metrics":"\u76D1\u63A7\u6307\u6807",
+"Login page":"\u767B\u5F55\u9875\u9762","Register page":"\u6CE8\u518C\u9875\u9762","Captcha image":"\u9A8C\u8BC1\u7801\u56FE\u7247",
+"Search (empty)":"\u5546\u54C1\u641C\u7D22(\u7A7A\u5173\u952E\u8BCD)","Search (iPhone)":"\u5546\u54C1\u641C\u7D22(iPhone)",
+"Search (category+keyword)":"\u5546\u54C1\u641C\u7D22(\u5206\u7C7B+\u5173\u952E\u8BCD)","Search (price range)":"\u5546\u54C1\u641C\u7D22(\u4EF7\u683C\u533A\u95F4)",
+"Search (KEYWORD mode)":"\u5546\u54C1\u641C\u7D22(KEYWORD\u6A21\u5F0F)","Search (SEMANTIC mode)":"\u5546\u54C1\u641C\u7D22(SEMANTIC\u6A21\u5F0F)",
+"Search (HYBRID mode)":"\u5546\u54C1\u641C\u7D22(HYBRID\u6A21\u5F0F)","Search (BEST_FIT sort)":"\u5546\u54C1\u641C\u7D22(BEST_FIT\u6392\u5E8F)",
+"Search (PRICE_ASC sort)":"\u5546\u54C1\u641C\u7D22(PRICE_ASC\u6392\u5E8F)","Search (NEWEST sort)":"\u5546\u54C1\u641C\u7D22(NEWEST\u6392\u5E8F)",
+"Recommendations (anonymous)":"\u63A8\u8350\u5546\u54C1(\u533F\u540D)","Update product status":"\u5546\u54C1\u72B6\u6001\u66F4\u65B0",
+"Search API (phone)":"\u641C\u7D22\u63A5\u53E3(phone)","Search API (category+keyword)":"\u641C\u7D22\u63A5\u53E3(\u5206\u7C7B+\u5173\u952E\u8BCD)",
+"Search API (semantic)":"\u641C\u7D22\u63A5\u53E3(\u8BED\u4E49\u6A21\u5F0F)","Search API (keyword)":"\u641C\u7D22\u63A5\u53E3(\u5173\u952E\u8BCD\u6A21\u5F0F)",
+"Search API (hybrid)":"\u641C\u7D22\u63A5\u53E3(\u6DF7\u5408\u6A21\u5F0F)","Embedding test":"\u8BED\u4E49\u5D4C\u5165\u6D4B\u8BD5",
+"Search index rebuild":"\u641C\u7D22\u7D22\u5F15\u91CD\u5EFA","Record browse history":"\u8BB0\u5F55\u6D4F\u89C8\u5386\u53F2",
+"Recommend list (userId=2)":"\u63A8\u8350\u5217\u8868(userId=2)","Recommend list (userId=5)":"\u63A8\u8350\u5217\u8868(userId=5)",
+"Recommend list (userId=10)":"\u63A8\u8350\u5217\u8868(userId=10)","User profile cache":"\u7528\u6237\u753B\u50CF\u7F13\u5B58",
+"Degrade recommend":"\u964D\u7EA7\u63A8\u8350","Degrade metrics":"\u964D\u7EA7\u6307\u6807",
+"Index stats (userId=2)":"\u7D22\u5F15\u7EDF\u8BA1(userId=2)","Index stats (category=digital)":"\u7D22\u5F15\u7EDF\u8BA1(\u5206\u7C7B=\u6570\u7801)",
+"Index stats (keyword=iPhone)":"\u7D22\u5F15\u7EDF\u8BA1(\u5173\u952E\u8BCD=iPhone)","Index rebuild":"\u7D22\u5F15\u91CD\u5EFA",
+"No-index brute match":"\u65E0\u7D22\u5F15\u66B4\u529B\u5339\u914D",
+"User center (no login)":"\u7528\u6237\u4E2D\u5FC3(\u672A\u767B\u5F55)","Inbox (no login)":"\u6536\u4EF6\u7BB1(\u672A\u767B\u5F55)",
+"Inbox status (no login)":"\u6536\u4EF6\u7BB1\u72B6\u6001(\u672A\u767B\u5F55)","Publish page (no login)":"\u53D1\u5E03\u5546\u54C1\u9875(\u672A\u767B\u5F55)",
+"Browse history (no login)":"\u6D4F\u89C8\u5386\u53F2(\u672A\u767B\u5F55)","My orders (no login)":"\u6211\u7684\u8BA2\u5355(\u672A\u767B\u5F55)",
+"Admin panel (no login)":"\u7BA1\u7406\u540E\u53F0(\u672A\u767B\u5F55)","User management (no login)":"\u7528\u6237\u7BA1\u7406(\u672A\u767B\u5F55)",
+"Product management (no login)":"\u5546\u54C1\u7BA1\u7406(\u672A\u767B\u5F55)","Order management (no login)":"\u8BA2\u5355\u7BA1\u7406(\u672A\u767B\u5F55)"
+};
+document.title="\u6821\u56ED\u4E8C\u624B\u4EA4\u6613\u5E73\u53F0 - \u5168\u63A5\u53E3\u6D4B\u8BD5\u62A5\u544A";
+document.getElementById("main-title").innerHTML="\u6821\u56ED\u4E8C\u624B\u4EA4\u6613\u5E73\u53F0 <span>\u5168\u63A5\u53E3\u6D4B\u8BD5\u62A5\u544A</span>";
+document.querySelectorAll("[data-i18n]").forEach(function(e){var k=e.getAttribute("data-i18n");if(zh[k]){if(k==="speedup"){var s=e.getAttribute("data-speedup");e.innerHTML="\u4E24\u7EA7\u7D22\u5F15\u6BD4\u65E0\u7D22\u5F15\u66B4\u529B\u5339\u914D\u5FEB\u7EA6 <strong>"+s+"\u500D</strong>"}else{e.textContent=zh[k]}}});
+document.querySelectorAll("[data-c]").forEach(function(e){var k=e.getAttribute("data-c");if(catZh[k])e.textContent=catZh[k]});
+document.querySelectorAll("[data-d]").forEach(function(e){var k=e.getAttribute("data-d");if(descZh[k])e.textContent=descZh[k]});
+document.querySelectorAll("[data-s]").forEach(function(e){var s=e.getAttribute("data-s");e.textContent=s==="PASS"?"\u2714 \u901A\u8FC7":"\u2718 \u5931\u8D25"});
+var ts=document.querySelector(".timestamp");if(ts)ts.textContent=ts.textContent.replace("Generated:","\u751F\u6210\u65F6\u95F4\uFF1A").replace("Duration:","\u603B\u8017\u65F6\uFF1A").replace("s","\u79D2").replace("Target:","\u76EE\u6807\u670D\u52A1\uFF1A");
+</script>
+</body>
+</html>
