@@ -113,11 +113,11 @@
             $('#inboxEmpty').hide();
             rows.forEach(function (row) {
                 var unread = row.read === false;
-                var img = row.imageUrl || (ctx + '/static/img/placeholder.svg');
+                var img = normalizeImageUrl(row.imageUrl);
                 var detailUrl = ctx + '/product/detail?id=' + row.productId;
                 var sourceLabel = row.source === 'inbox' ? '发布匹配' : (row.source || '');
                 var $item = $('<div class="inbox-item' + (unread ? ' unread' : '') + '">' +
-                    '<img src="' + img + '" alt="">' +
+                    '<img src="' + escapeHtml(img) + '" alt="">' +
                     '<div class="flex-grow-1">' +
                     '<div class="d-flex justify-content-between align-items-start">' +
                     '<h6 class="mb-1"><a href="' + detailUrl + '">' + escapeHtml(row.name || '') + '</a></h6>' +
@@ -138,6 +138,22 @@
 
         function escapeHtml(s) {
             return $('<div>').text(s).html();
+        }
+
+        function normalizeImageUrl(imageUrl) {
+            if (!imageUrl) {
+                return ctx + '/static/img/placeholder.svg';
+            }
+            if (/^(https?:)?\/\//i.test(imageUrl) || imageUrl.indexOf('data:') === 0) {
+                return imageUrl;
+            }
+            if (ctx && imageUrl.indexOf(ctx + '/') === 0) {
+                return imageUrl;
+            }
+            if (imageUrl.charAt(0) === '/') {
+                return ctx + imageUrl;
+            }
+            return ctx + '/' + imageUrl;
         }
 
         function loadInbox() {
