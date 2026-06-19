@@ -33,5 +33,12 @@ upload/
 # Local config (do not commit secrets)
 src/main/resources/db.properties
 
+# Defense presentation draft (local only)
+答辩PPT文案.md
+
+# Node / generated artifacts
+node_modules/
+outputs/
+
 
 

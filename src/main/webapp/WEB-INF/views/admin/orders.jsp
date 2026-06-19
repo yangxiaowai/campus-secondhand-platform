@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,8 +37,8 @@
                     <tr>
                         <td>${order.orderNo}</td>
                         <td>
-                            <img src="${order.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;"
-                                 onerror="this.onerror=null;this.src='/static/img/placeholder.svg';">
+                            <img src="${ctx}${order.product.imageUrl}" style="width: 50px; height: 50px; object-fit: cover;"
+                                 onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                             ${order.product.name}
                         </td>
                         <td>${order.buyer.nickname}</td>

@@ -4,6 +4,7 @@ import com.campus.annotation.Log;
 import com.campus.entity.Order;
 import com.campus.entity.Product;
 import com.campus.entity.User;
+import com.campus.util.SessionUserHelper;
 import com.campus.service.OrderService;
 import com.campus.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +41,7 @@ public class OrderController {
     public Map<String, Object> create(Integer productId, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         try {
-            User user = (User) session.getAttribute("user");
+            User user = SessionUserHelper.getLoginUser(session);
             Product product = productService.findById(productId);
 
             if (product == null) {
@@ -83,7 +84,7 @@ public class OrderController {
      */
     @RequestMapping("/myOrders")
     public String myOrders(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         model.addAttribute("orders", orderService.findByUserId(user.getId()));
         return "order/myOrders";
     }
@@ -93,7 +94,7 @@ public class OrderController {
      */
     @RequestMapping("/mySales")
     public String mySales(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         model.addAttribute("orders", orderService.findBySellerId(user.getId()));
         return "order/mySales";
     }
@@ -107,7 +108,7 @@ public class OrderController {
     public Map<String, Object> confirmOrder(Integer orderId, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         try {
-            User user = (User) session.getAttribute("user");
+            User user = SessionUserHelper.getLoginUser(session);
             boolean success = orderService.confirmOrder(orderId, user.getId());
             result.put("success", success);
             if (success) {
@@ -131,7 +132,7 @@ public class OrderController {
     public Map<String, Object> cancelOrder(Integer orderId, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         try {
-            User user = (User) session.getAttribute("user");
+            User user = SessionUserHelper.getLoginUser(session);
             boolean success = orderService.cancelOrder(orderId, user.getId());
             result.put("success", success);
             if (success) {

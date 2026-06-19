@@ -49,6 +49,10 @@
                 <c:choose>
                     <c:when test="${sessionScope.user != null}">
                         <span class="mr-3 text-muted">欢迎，${sessionScope.user.nickname}</span>
+                        <a href="${ctx}/user/inbox/page" class="btn btn-sm btn-outline-info mr-2 position-relative">
+                            推荐收件箱
+                            <span data-inbox-badge class="badge badge-danger inbox-nav-badge">0</span>
+                        </a>
                         <a href="${ctx}/user/center" class="btn btn-sm btn-outline-primary mr-2">个人中心</a>
                         <a href="${ctx}/product/publish" class="btn btn-sm btn-success mr-2">发布商品</a>
                         <a href="${ctx}/user/logout" class="btn btn-sm btn-outline-secondary">退出</a>
@@ -88,7 +92,7 @@
                         <c:if test="${product.status == 2}">
                             <span class="status-badge badge badge-warning px-3 py-2">已下架</span>
                         </c:if>
-                        <img src="${product.imageUrl}" class="card-img-top product-main-img p-3"
+                        <img src="${ctx}${product.imageUrl}" class="card-img-top product-main-img p-3"
                              alt="${product.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                     </div>
                 </div>
@@ -125,7 +129,7 @@
                                 <h6 class="font-weight-bold mb-3">卖家信息</h6>
                                 <div class="d-flex align-items-center">
                                     <div class="user-avatar mr-3" style="width: 50px; height: 50px; font-size: 20px;">
-                                        ${product.seller.nickname.substring(0,1)}
+                                        ${not empty product.seller.nickname ? product.seller.nickname.substring(0,1) : '用'}
                                     </div>
                                     <div>
                                         <p class="mb-1 font-weight-bold">${product.seller.nickname}</p>
@@ -184,7 +188,7 @@
                             <div class="col-md-3 mb-3">
                                 <div class="card similar-card h-100">
                                     <a href="${ctx}/product/detail?id=${sp.id}">
-                                        <img src="${sp.imageUrl}" class="card-img-top similar-img" 
+                                        <img src="${ctx}${sp.imageUrl}" class="card-img-top similar-img" 
                                              alt="${sp.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                                     </a>
                                     <div class="card-body p-3">
@@ -223,6 +227,10 @@
 
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+    <c:if test="${sessionScope.user != null}">
+        <script src="${ctx}/static/js/inbox-notify.js"></script>
+        <script>InboxNotify.start('${ctx}');</script>
+    </c:if>
     <script>
         function buyProduct(productId) {
             if (confirm('确定要购买此商品吗？\n\n点击确定后将生成订单，请与卖家联系完成交易。')) {

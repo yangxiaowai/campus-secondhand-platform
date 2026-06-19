@@ -22,6 +22,11 @@ public interface ProductMapper {
     Product findById(@Param("id") Integer id);
 
     /**
+     * 按 ID 列表批量查询（搜索 Hydrate）
+     */
+    List<Product> findByIds(@Param("ids") List<Integer> ids);
+
+    /**
      * 插入商品
      */
     int insert(Product product);

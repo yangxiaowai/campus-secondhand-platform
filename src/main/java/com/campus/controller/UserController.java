@@ -3,6 +3,7 @@ package com.campus.controller;
 import com.campus.annotation.Log;
 import com.campus.entity.User;
 import com.campus.service.UserService;
+import com.campus.util.SessionUserHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -219,6 +220,14 @@ public class UserController {
     }
 
     /**
+     * 推荐收件箱页面
+     */
+    @RequestMapping("/inbox/page")
+    public String inboxPage() {
+        return "user/inbox";
+    }
+
+    /**
      * 更新用户信息
      */
     @Log("更新个人信息")
@@ -226,7 +235,7 @@ public class UserController {
     @ResponseBody
     public Map<String, Object> update(User user, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
-        User sessionUser = (User) session.getAttribute("user");
+        User sessionUser = SessionUserHelper.getLoginUser(session);
         user.setId(sessionUser.getId());
         boolean success = userService.update(user);
         if (success) {

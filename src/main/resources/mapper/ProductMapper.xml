@@ -3,7 +3,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.campus.dao.ProductMapper">
 
-    <resultMap id="productMap" type="Product">
+    <resultMap id="productMap" type="com.campus.entity.Product">
         <id property="id" column="id"/>
         <result property="name" column="name"/>
         <result property="price" column="price"/>
@@ -15,11 +15,11 @@
         <result property="viewCount" column="view_count"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
-        <association property="category" javaType="Category">
+        <association property="category" javaType="com.campus.entity.Category">
             <id property="id" column="category_id"/>
             <result property="categoryName" column="category_name"/>
         </association>
-        <association property="seller" javaType="User">
+        <association property="seller" javaType="com.campus.entity.User">
             <id property="id" column="user_id"/>
             <result property="nickname" column="nickname"/>
             <result property="phone" column="phone"/>
@@ -56,6 +56,25 @@
         LEFT JOIN t_category c ON p.category_id = c.id
         LEFT JOIN t_user u ON p.user_id = u.id
         WHERE p.id = #{id}
+    </select>
+
+    <select id="findByIds" resultMap="productMap">
+        SELECT p.*, c.category_name, u.nickname, u.phone, u.email
+        FROM t_product p
+        LEFT JOIN t_category c ON p.category_id = c.id
+        LEFT JOIN t_user u ON p.user_id = u.id
+        WHERE p.status = 0
+        <if test="ids != null and ids.size() > 0">
+            AND p.id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            ORDER BY FIELD(p.id,
+            <foreach collection="ids" item="id" separator=",">
+                #{id}
+            </foreach>
+            )
+        </if>
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">

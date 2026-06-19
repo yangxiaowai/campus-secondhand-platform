@@ -51,7 +51,7 @@
                 <div class="card card-ui">
                     <div class="card-body d-flex align-items-center">
                         <div class="user-avatar mr-3" style="width: 60px; height: 60px; font-size: 24px;">
-                            ${sessionScope.user.nickname.substring(0,1)}
+                            ${not empty sessionScope.user.nickname ? sessionScope.user.nickname.substring(0,1) : '用'}
                         </div>
                         <div>
                             <h5 class="mb-1">${sessionScope.user.nickname}</h5>
@@ -74,6 +74,12 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="products-tab" data-toggle="tab" href="#products" role="tab">我的商品</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="inbox-tab" data-toggle="tab" href="#inbox" role="tab">
+                    推荐收件箱
+                    <span data-inbox-badge class="badge badge-danger inbox-nav-badge ml-1">0</span>
+                </a>
             </li>
         </ul>
 
@@ -200,6 +206,21 @@
                 </div>
             </div>
 
+            <!-- 推荐收件箱 -->
+            <div class="tab-pane fade" id="inbox" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <a href="${ctx}/user/inbox/page" class="text-decoration-none">
+                            <div class="quick-link-card">
+                                <div class="icon">📬</div>
+                                <h6>打开推荐收件箱</h6>
+                                <small class="text-muted">查看发布匹配推送、免打扰与一键已读</small>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
             <!-- 我的商品 -->
             <div class="tab-pane fade" id="products" role="tabpanel">
                 <div class="row">
@@ -235,7 +256,9 @@
 
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+    <script src="${ctx}/static/js/inbox-notify.js"></script>
     <script>
+        InboxNotify.start('${ctx}');
         // 处理 URL 中的 hash，自动切换到对应 Tab
         $(document).ready(function() {
             var hash = window.location.hash;

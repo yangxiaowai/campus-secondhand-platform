@@ -93,7 +93,7 @@
                 </div>
                 <div class="order-body">
                     <a href="${ctx}/product/detail?id=${order.productId}">
-                        <img src="${order.product.imageUrl}" class="product-img" alt="${order.product.name}"
+                        <img src="${ctx}${order.product.imageUrl}" class="product-img" alt="${order.product.name}"
                              onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                     </a>
                     <div class="product-info">

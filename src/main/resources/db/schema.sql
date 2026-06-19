@@ -9,15 +9,16 @@ USE secondhand_market;
 CREATE TABLE t_user (
     id INT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE COMMENT '用户名',
-    password VARCHAR(100) NOT NULL COMMENT '密码（MD5加密）',
-    nickname VARCHAR(50) COMMENT '昵称（可选，默认使用用户名）',
+    password VARCHAR(100) NOT NULL COMMENT '密码(MD5加密)',
+    nickname VARCHAR(50) COMMENT '昵称(可选,默认使用用户名)',
     phone VARCHAR(20) COMMENT '手机号',
     email VARCHAR(100) COMMENT '邮箱',
-    role INT DEFAULT 1 COMMENT '角色：1-普通用户，2-管理员',
-    status INT DEFAULT 1 COMMENT '状态：1-正常，0-冻结',
+    role INT DEFAULT 1 COMMENT '角色:1-普通用户,2-管理员',
+    status INT DEFAULT 1 COMMENT '状态:1-正常,0-冻结',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     INDEX idx_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
 
 -- 分类表
 CREATE TABLE t_category (
@@ -71,6 +72,19 @@ INSERT INTO t_category (category_name) VALUES
 ('服装配饰'),
 ('运动健身'),
 ('其他');
+
+-- 用户兴趣画像表（成员A：用户兴趣画像系统）
+-- 存储用户的多维兴趣画像数据，以 JSON 格式持久化
+-- 日常读写走 Redis，MySQL 作为持久化备份
+CREATE TABLE t_user_profile (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL UNIQUE COMMENT '用户ID',
+    profile_data JSON COMMENT '画像数据（JSON格式）：包含分类权重、价格区间、关键词等',
+    version BIGINT DEFAULT 0 COMMENT '版本号（乐观锁）',
+    updated_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    FOREIGN KEY (user_id) REFERENCES t_user(id),
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户兴趣画像表';
 
 -- 插入管理员账号（密码：admin123，MD5加密后）
 INSERT INTO t_user (username, password, nickname, role) VALUES

@@ -18,6 +18,10 @@
                 <c:choose>
                     <c:when test="${sessionScope.user != null}">
                         <span class="mr-3 text-muted">欢迎，${sessionScope.user.nickname}</span>
+                        <a href="${ctx}/user/inbox/page" class="btn btn-sm btn-outline-info mr-2 position-relative">
+                            推荐收件箱
+                            <span data-inbox-badge class="badge badge-danger inbox-nav-badge">0</span>
+                        </a>
                         <a href="${ctx}/user/center" class="btn btn-sm btn-outline-primary mr-2">个人中心</a>
                         <a href="${ctx}/product/publish" class="btn btn-sm btn-success mr-2">发布商品</a>
                         <c:if test="${sessionScope.user.role == 2}">
@@ -92,7 +96,7 @@
                                     <span class="badge-status badge-live">热度 ${product.viewCount}</span>
                                 </div>
                                 <a href="${ctx}/product/detail?id=${product.id}">
-                                    <img src="${product.imageUrl}" class="card-img-top product-image"
+                                    <img src="${ctx}${product.imageUrl}" class="card-img-top product-image"
                                          alt="${product.name}" onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                                 </a>
                                 <div class="card-body">
@@ -170,6 +174,10 @@
 
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/4.6.2/js/bootstrap.bundle.min.js"></script>
+    <c:if test="${sessionScope.user != null}">
+        <script src="${ctx}/static/js/inbox-notify.js"></script>
+        <script>InboxNotify.start('${ctx}');</script>
+    </c:if>
 </body>
 </html>
 

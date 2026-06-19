@@ -2,6 +2,17 @@ package com.campus.controller;
 
 import com.campus.config.MinIOConfig;
 import com.campus.entity.Product;
+import com.campus.service.DegradeService;
+import com.campus.service.IndexService;
+import com.campus.service.ProductSearchIndexService;
+import com.campus.service.ProductSearchService;
+import com.campus.search.SearchMode;
+import com.campus.search.SearchPageResult;
+import com.campus.search.SearchRecommendCriteria;
+import com.campus.search.embedding.EmbeddingService;
+import com.campus.search.redis.RedisStackVectorIndexService;
+import com.campus.service.MetricsService;
+import com.campus.service.NoIndexMatchService;
 import com.campus.service.RecommendService;
 import io.minio.MinioClient;
 import io.minio.ListObjectsArgs;
@@ -17,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.servlet.http.HttpSession;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +62,30 @@ public class TestController {
 
     @Autowired(required = false)
     private RecommendService recommendService;
+
+    @Autowired(required = false)
+    private DegradeService degradeService;
+
+    @Autowired(required = false)
+    private MetricsService metricsService;
+
+    @Autowired(required = false)
+    private IndexService indexService;
+
+    @Autowired(required = false)
+    private ProductSearchService productSearchService;
+
+    @Autowired(required = false)
+    private ProductSearchIndexService productSearchIndexService;
+
+    @Autowired(required = false)
+    private EmbeddingService embeddingService;
+
+    @Autowired(required = false)
+    private RedisStackVectorIndexService redisStackVectorIndexService;
+
+    @Autowired(required = false)
+    private NoIndexMatchService noIndexMatchService;
 
     /**
      * 测试 Redis 连接
@@ -195,10 +232,54 @@ public class TestController {
             return result;
         }
         int safeLimit = (limit == null || limit <= 0) ? 5 : limit;
-        List<Product> data = recommendService.getPersonalizedRecommendations(userId, safeLimit);
+        List<Product> data;
+        if (degradeService != null) {
+            data = degradeService.recommendForUser(userId, safeLimit);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+        } else {
+            data = recommendService.getPersonalizedRecommendations(userId, safeLimit);
+        }
         result.put("success", true);
         result.put("count", data.size());
         result.put("data", data);
+        return result;
+    }
+
+    /**
+     * 成员D：降级推荐验收（含 L1/L2）
+     */
+    @GetMapping("/degrade/recommend")
+    @ResponseBody
+    public Map<String, Object> testDegradeRecommend(Integer userId, Integer limit) {
+        Map<String, Object> result = new HashMap<>();
+        if (degradeService == null) {
+            result.put("success", false);
+            result.put("message", "DegradeService 未注入");
+            return result;
+        }
+        int safeLimit = (limit == null || limit <= 0) ? 8 : limit;
+        List<Product> data = degradeService.recommendForUser(userId, safeLimit);
+        result.put("success", true);
+        result.put("redisAvailable", degradeService.isRedisAvailable());
+        result.put("count", data.size());
+        result.put("data", data);
+        return result;
+    }
+
+    /**
+     * 成员D：指标快照
+     */
+    @GetMapping("/degrade/metrics")
+    @ResponseBody
+    public Map<String, Object> testDegradeMetrics() {
+        Map<String, Object> result = new HashMap<>();
+        if (metricsService == null) {
+            result.put("success", false);
+            result.put("message", "MetricsService 未注入");
+            return result;
+        }
+        result.put("success", true);
+        result.putAll(metricsService.snapshot());
         return result;
     }
 
@@ -229,5 +310,182 @@ public class TestController {
         result.put("history", redisTemplate.opsForList().range(historyKey, 0, 20));
         result.put("historyTTL", redisTemplate.getExpire(historyKey));
         return result;
+    }
+
+    /**
+     * 成员4：查看两级索引与收件箱（验收用）
+     */
+    @GetMapping("/index/stats")
+    @ResponseBody
+    public Map<String, Object> testIndexStats(Integer categoryId, String keyword, Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        if (redisTemplate == null) {
+            result.put("success", false);
+            result.put("message", "RedisTemplate 未注入");
+            return result;
+        }
+        int catId = categoryId == null ? 1 : categoryId;
+        String kw = (keyword == null || keyword.isEmpty()) ? "算法" : keyword;
+        String categoryKey = "idx:category:" + catId + ":users";
+        String keywordKey = "idx:keyword:" + kw + ":users";
+        result.put("success", true);
+        result.put("categoryKey", categoryKey);
+        result.put("categoryUsers", redisTemplate.opsForSet().members(categoryKey));
+        result.put("keywordKey", keywordKey);
+        result.put("keywordUsers", redisTemplate.opsForSet().members(keywordKey));
+        if (userId != null) {
+            String inboxKey = "user:inbox:" + userId;
+            result.put("inboxKey", inboxKey);
+            result.put("inbox", redisTemplate.opsForZSet().reverseRangeWithScores(inboxKey, 0, 19));
+        }
+        return result;
+    }
+
+    /**
+     * 成员4：触发全量索引重建
+     */
+    @GetMapping("/index/rebuild")
+    @ResponseBody
+    public Map<String, Object> testIndexRebuild() {
+        Map<String, Object> result = new HashMap<>();
+        if (indexService == null) {
+            result.put("success", false);
+            result.put("message", "IndexService 未注入");
+            return result;
+        }
+        indexService.rebuildAllIndexes();
+        result.put("success", true);
+        result.put("message", "全量索引重建已触发，请访问 /test/index/stats 查看");
+        return result;
+    }
+
+    /**
+<<<<<<< Updated upstream
+     * 商品搜索验收：关键词 / 语义 / 混合
+     */
+    @GetMapping("/search")
+    @ResponseBody
+    public Map<String, Object> testSearch(String keyword,
+                                          Integer categoryId,
+                                          String mode,
+                                          Integer pageNum,
+                                          Integer pageSize,
+                                          Double minPrice,
+                                          Double maxPrice,
+                                          Integer maxPublishDays,
+                                          String sortBy,
+                                          Integer userId) {
+        Map<String, Object> result = new HashMap<>();
+        if (productSearchService == null) {
+            result.put("success", false);
+            result.put("message", "ProductSearchService 未注入");
+            return result;
+        }
+        if (keyword == null || keyword.isEmpty()) {
+            result.put("success", false);
+            result.put("message", "请传 keyword 参数");
+            return result;
+        }
+        SearchMode searchMode = SearchMode.from(mode);
+        int pn = pageNum == null ? 1 : pageNum;
+        int ps = pageSize == null ? 12 : pageSize;
+        SearchRecommendCriteria criteria = new SearchRecommendCriteria();
+        criteria.setMinPrice(minPrice);
+        criteria.setMaxPrice(maxPrice);
+        criteria.setMaxPublishDays(maxPublishDays);
+        criteria.setSortBy(SearchRecommendCriteria.parseSortBy(sortBy));
+        criteria.setUserId(userId);
+        SearchPageResult page = productSearchService.search(keyword, categoryId, searchMode, pn, ps, criteria);
+        result.put("success", true);
+        result.put("sortBy", criteria.getSortBy().name());
+        result.put("rankScores", page.getRankScores());
+        result.put("searchMode", page.getSearchMode().name());
+        result.put("engine", page.getEngine());
+        result.put("degradeLevel", page.getDegradeLevel());
+        result.put("tookMs", page.getTookMs());
+        result.put("shardCount", page.getShardCount());
+        result.put("total", page.getTotal());
+        result.put("count", page.getList().size());
+        result.put("data", page.getList());
+        result.put("scores", page.getScores());
+        result.put("semanticEngine", page.getSemanticEngine());
+        result.put("embeddingModel", page.getEmbeddingModel());
+        if (degradeService != null) {
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+        }
+        if (redisStackVectorIndexService != null) {
+            result.put("redisStackAvailable", redisStackVectorIndexService.isStackAvailable());
+        }
+        return result;
+    }
+
+    /**
+     * 测试 Embedding 生成
+     */
+    @GetMapping("/search/embedding")
+    @ResponseBody
+    public Map<String, Object> testEmbedding(String text) {
+        Map<String, Object> result = new HashMap<>();
+        if (embeddingService == null) {
+            result.put("success", false);
+            result.put("message", "EmbeddingService 未注入");
+            return result;
+        }
+        if (text == null || text.isEmpty()) {
+            text = "二手教材 算法导论";
+        }
+        float[] vec = embeddingService.embed(text);
+        result.put("success", vec != null);
+        result.put("model", embeddingService.modelName());
+        result.put("dimensions", vec != null ? vec.length : 0);
+        result.put("sample", vec != null && vec.length > 0
+                ? Arrays.asList(vec[0], vec[Math.min(1, vec.length - 1)], vec[Math.min(2, vec.length - 1)])
+                : Collections.emptyList());
+        if (redisStackVectorIndexService != null) {
+            result.put("redisStackAvailable", redisStackVectorIndexService.isStackAvailable());
+        }
+        return result;
+    }
+
+    /**
+     * 重建商品搜索倒排索引
+     */
+    @GetMapping("/search/rebuild")
+    @ResponseBody
+    public Map<String, Object> testSearchRebuild() {
+        Map<String, Object> result = new HashMap<>();
+        if (productSearchIndexService == null) {
+            result.put("success", false);
+            result.put("message", "ProductSearchIndexService 未注入");
+            return result;
+        }
+        productSearchIndexService.rebuildAllIndexes();
+        result.put("success", true);
+        result.put("message", "商品搜索索引全量重建完成，请访问 /test/search?keyword=教材 验收");
+        return result;
+    }
+
+    /**
+     * 无索引推荐接口（退阶版）
+     * 
+     * 不使用 Redis 两级索引，遍历所有用户 × 所有商品，
+     * 逐一计算匹配度并写入收件箱。
+     * 
+     * 访问示例：
+     *   GET /test/noindex/match?minScore=0.12
+     * 
+     * 返回统计信息便于与有索引方案对比性能。
+     */
+    @GetMapping("/noindex/match")
+    @ResponseBody
+    public Map<String, Object> testNoIndexMatch(Double minScore) {
+        if (noIndexMatchService == null) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "NoIndexMatchService 未注入");
+            return result;
+        }
+        double threshold = minScore == null ? 0.12 : minScore;
+        return noIndexMatchService.matchAll(threshold);
     }
 }

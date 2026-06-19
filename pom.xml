@@ -32,6 +32,38 @@
         <minio.version>8.5.2</minio.version>
     </properties>
 
+    <!-- 与默认 Central 并存：避免直连 repo.maven.apache.org 因 TLS/网络中断握手，且可绕过本地 .lastUpdated 负缓存 -->
+    <repositories>
+        <repository>
+            <id>central-via-repo1</id>
+            <name>Maven Central (repo1.maven.org)</name>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+        <repository>
+            <id>aliyunmaven-public</id>
+            <name>Aliyun Public</name>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central-via-repo1-plugins</id>
+            <url>https://repo1.maven.org/maven2</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
+        <pluginRepository>
+            <id>aliyunmaven-public-plugins</id>
+            <url>https://maven.aliyun.com/repository/public</url>
+            <releases><enabled>true</enabled></releases>
+            <snapshots><enabled>false</enabled></snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+
     <dependencies>
         <!-- Spring Core -->
         <dependency>
@@ -237,7 +269,7 @@
                     <source>1.8</source>
                     <target>1.8</target>
                     <encoding>UTF-8</encoding>
-                    <proc>full</proc>
+                    <!-- 勿使用 proc=full：仅 JDK 9+ javac 支持，Docker 内 JDK8 构建会报 invalid flag -proc:full -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>
@@ -245,7 +277,7 @@
                             <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
-                    <fork>true</fork>
+                    <fork>false</fork>
                 </configuration>
             </plugin>
             <plugin>

@@ -3,6 +3,7 @@ package com.campus.aspect;
 import com.campus.annotation.Log;
 import com.campus.entity.OperationLog;
 import com.campus.entity.User;
+import com.campus.util.SessionUserHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -110,7 +111,7 @@ public class LogAspect {
             // 获取当前登录用户
             HttpSession session = request.getSession(false);
             if (session != null) {
-                User user = (User) session.getAttribute("user");
+                User user = SessionUserHelper.getLoginUser(session);
                 if (user != null) {
                     operationLog.setUserId(user.getId());
                     operationLog.setUsername(user.getUsername());

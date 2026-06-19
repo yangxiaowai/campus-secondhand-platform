@@ -60,11 +60,19 @@
                                 <div class="captcha-group">
                                     <input type="text" name="captcha" class="form-control" 
                                            placeholder="请输入验证码" maxlength="4" required>
-                                    <img id="captchaImg" class="captcha-img" 
-                                         src="${ctx}/captcha/image?t=<%=System.currentTimeMillis()%>" 
-                                         onclick="refreshCaptcha()" 
+                                    <img id="captchaImg" class="captcha-img"
+                                         alt="验证码"
+                                         onclick="refreshCaptcha()"
                                          title="点击刷新验证码">
                                 </div>
+                                <script type="text/javascript">
+                                    (function () {
+                                        var el = document.getElementById('captchaImg');
+                                        if (el) {
+                                            el.src = '${ctx}/captcha/image?t=' + Date.now();
+                                        }
+                                    })();
+                                </script>
                                 <small class="form-text text-muted">点击图片可刷新验证码</small>
                             </div>
                             <button type="submit" class="btn btn-primary btn-block btn-lg mt-4">登 录</button>

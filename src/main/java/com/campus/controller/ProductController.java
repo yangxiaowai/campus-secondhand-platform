@@ -4,10 +4,19 @@ import com.campus.annotation.Log;
 import com.campus.entity.Product;
 import com.campus.entity.User;
 import com.campus.service.CategoryService;
+import com.campus.service.ProductFeatureService;
 import com.campus.service.ProductService;
+import com.campus.service.DegradeService;
+import com.campus.search.SearchMode;
+import com.campus.search.SearchPageResult;
+import com.campus.search.SearchRecommendCriteria;
+import com.campus.service.ProductSearchService;
 import com.campus.service.RecommendService;
+import com.campus.service.UserProfileService;
 import com.campus.util.FileUploadUtil;
 import com.campus.util.MinIOUtil;
+import com.campus.util.SessionUserHelper;
+import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +53,18 @@ public class ProductController {
     private RecommendService recommendService;
 
     @Autowired
+    private DegradeService degradeService;
+
+    @Autowired
+    private UserProfileService userProfileService;
+
+    @Autowired
+    private ProductFeatureService productFeatureService;
+
+    @Autowired
+    private ProductSearchService productSearchService;
+
+    @Autowired
     private MinIOUtil minIOUtil;
     
     @Value("${upload.path:D:/upload/}")
@@ -57,23 +78,98 @@ public class ProductController {
                        @RequestParam(defaultValue = "12") Integer pageSize,
                        String keyword,
                        Integer categoryId,
-                       Model model) {
-        PageInfo<Product> pageInfo = productService.findList(keyword, categoryId, pageNum, pageSize);
-        model.addAttribute("pageInfo", pageInfo);
+                       @RequestParam(defaultValue = "HYBRID") String searchMode,
+                       Double minPrice,
+                       Double maxPrice,
+                       Integer maxPublishDays,
+                       @RequestParam(defaultValue = "BEST_FIT") String sortBy,
+                       String errorMsg,
+                       Model model,
+                       HttpSession session) {
+        SearchMode mode = SearchMode.from(searchMode);
+        Integer cat = (categoryId != null && categoryId == 0) ? null : categoryId;
+        SearchRecommendCriteria criteria = buildSearchCriteria(session, minPrice, maxPrice, maxPublishDays, sortBy);
+        SearchPageResult searchResult = productSearchService.search(
+                keyword, cat, mode, pageNum, pageSize, criteria);
+        model.addAttribute("searchResult", searchResult);
+        model.addAttribute("pageInfo", searchResult);
         model.addAttribute("categories", categoryService.findAll());
         model.addAttribute("keyword", keyword);
         model.addAttribute("categoryId", categoryId);
-        
-        // 热门商品
+        model.addAttribute("searchMode", mode.name());
+        model.addAttribute("minPrice", minPrice);
+        model.addAttribute("maxPrice", maxPrice);
+        model.addAttribute("maxPublishDays", maxPublishDays);
+        model.addAttribute("sortBy", criteria.getSortBy().name());
+        model.addAttribute("rankScores", searchResult.getRankScores());
+        if (errorMsg != null && !errorMsg.isEmpty()) {
+            model.addAttribute("errorMsg", errorMsg);
+        }
         model.addAttribute("hotProducts", productService.findHotProducts(6));
-        
         return "product/list";
     }
 
     /**
+     * 搜索 API（关键词 / 语义 / 混合，JSON）
+     */
+    @RequestMapping("/search")
+    @ResponseBody
+    public Map<String, Object> searchApi(String keyword,
+                                         Integer categoryId,
+                                         @RequestParam(defaultValue = "HYBRID") String searchMode,
+                                         @RequestParam(defaultValue = "1") Integer pageNum,
+                                         @RequestParam(defaultValue = "12") Integer pageSize,
+                                         Double minPrice,
+                                         Double maxPrice,
+                                         Integer maxPublishDays,
+                                         @RequestParam(defaultValue = "BEST_FIT") String sortBy,
+                                         HttpSession session) {
+        Map<String, Object> result = new HashMap<>();
+        SearchMode mode = SearchMode.from(searchMode);
+        Integer cat = (categoryId != null && categoryId == 0) ? null : categoryId;
+        SearchRecommendCriteria criteria = buildSearchCriteria(session, minPrice, maxPrice, maxPublishDays, sortBy);
+        SearchPageResult page = productSearchService.search(keyword, cat, mode, pageNum, pageSize, criteria);
+        result.put("success", true);
+        result.put("data", page.getList());
+        result.put("total", page.getTotal());
+        result.put("pageNum", page.getPageNum());
+        result.put("pageSize", page.getPageSize());
+        result.put("searchMode", page.getSearchMode().name());
+        result.put("sortBy", criteria.getSortBy().name());
+        result.put("rankScores", page.getRankScores());
+        result.put("engine", page.getEngine());
+        result.put("degradeLevel", page.getDegradeLevel());
+        result.put("tookMs", page.getTookMs());
+        result.put("shardCount", page.getShardCount());
+        result.put("scores", page.getScores());
+        result.put("redisAvailable", degradeService.isRedisAvailable());
+        result.put("semanticEngine", page.getSemanticEngine());
+        result.put("embeddingModel", page.getEmbeddingModel());
+        return result;
+    }
+
+    private SearchRecommendCriteria buildSearchCriteria(HttpSession session,
+                                                        Double minPrice, Double maxPrice,
+                                                        Integer maxPublishDays, String sortBy) {
+        SearchRecommendCriteria criteria = new SearchRecommendCriteria();
+        criteria.setMinPrice(minPrice);
+        criteria.setMaxPrice(maxPrice);
+        criteria.setMaxPublishDays(maxPublishDays);
+        criteria.setSortBy(SearchRecommendCriteria.parseSortBy(sortBy));
+        User user = SessionUserHelper.getLoginUser(session);
+        if (user != null) {
+            criteria.setUserId(user.getId());
+        }
+        return criteria;
+    }
+
+    /**
      * 商品详情页
-     * 技术亮点：记录浏览历史 + 相似商品推荐
+     * 技术亮点：记录浏览历史 + 相似商品推荐 + 用户画像实时更新
      * 优化：只查询一次数据库，increaseViewCount 内部通过 SQL 自增，无需重新查询
+     * 
+     * 成员A：用户浏览商品时触发画像增量更新
+     * 成员B：后续可通过 UserProfileService 获取画像数据进行匹配
      */
     @RequestMapping("/detail")
     public String detail(Integer id, Model model, HttpSession session) {
@@ -82,10 +178,22 @@ public class ProductController {
             productService.increaseViewCount(id); // 增加浏览量（SQL 层自增，无需重新查询）
             product.setViewCount(product.getViewCount() + 1); // 本地 +1，避免重复查询
 
-            // 记录浏览历史（用于个性化推荐）
-            User user = (User) session.getAttribute("user");
+            // 记录浏览历史 / 画像更新（Redis 异常时不影响详情页展示）
+            User user = SessionUserHelper.getLoginUser(session);
             if (user != null) {
-                recommendService.recordBrowseHistory(user.getId(), id);
+                try {
+                    recommendService.recordBrowseHistory(user.getId(), id);
+                    List<String> keywords = productFeatureService.extractKeywords(
+                            product.getName() != null ? product.getName() : "");
+                    userProfileService.recordBrowse(
+                            user.getId(),
+                            product.getCategoryId(),
+                            product.getPrice() != null ? product.getPrice().doubleValue() : null,
+                            keywords
+                    );
+                } catch (Exception e) {
+                    logger.warn("记录浏览历史或更新画像失败，已忽略: {}", e.getMessage());
+                }
             }
 
             // 获取相似商品推荐
@@ -116,7 +224,7 @@ public class ProductController {
                                        HttpSession session) {
         Map<String, Object> result = new HashMap<>();
         try {
-            User user = (User) session.getAttribute("user");
+            User user = SessionUserHelper.getLoginUser(session);
             product.setUserId(user.getId());
 
             // 上传图片到 MinIO（多实例共享）
@@ -139,7 +247,7 @@ public class ProductController {
      */
     @RequestMapping("/manage")
     public String manage(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         model.addAttribute("products", productService.findByUserId(user.getId()));
         return "product/manage";
     }
@@ -191,7 +299,7 @@ public class ProductController {
     @ResponseBody
     public Map<String, Object> delete(Integer id, HttpSession session) {
         Map<String, Object> result = new HashMap<>();
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user == null) {
             result.put("success", false);
             result.put("message", "登录已失效，请重新登录");
@@ -252,7 +360,7 @@ public class ProductController {
      */
     @RequestMapping("/history")
     public String browseHistory(HttpSession session, Model model) {
-        User user = (User) session.getAttribute("user");
+        User user = SessionUserHelper.getLoginUser(session);
         if (user != null) {
             List<Product> history = recommendService.getBrowseHistory(user.getId(), 20);
             model.addAttribute("historyProducts", history);
@@ -268,16 +376,26 @@ public class ProductController {
     @ResponseBody
     public Map<String, Object> getRecommendations(HttpSession session) {
         Map<String, Object> result = new HashMap<>();
-        User user = (User) session.getAttribute("user");
+        User user = null;
+        boolean sessionDegraded = false;
+        try {
+            user = SessionUserHelper.getLoginUser(session);
+        } catch (Exception e) {
+            sessionDegraded = true;
+        }
         if (user != null) {
-            List<Product> recommendations = recommendService.getPersonalizedRecommendations(user.getId(), 8);
+            List<Product> recommendations = degradeService.recommendForUser(user.getId(), 8);
             result.put("success", true);
             result.put("data", recommendations);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
         } else {
-            // 未登录用户返回热门商品
-            List<Product> hotProducts = productService.findHotProducts(8);
+            List<Product> hotProducts = degradeService.recommendForUser(null, 8);
             result.put("success", true);
             result.put("data", hotProducts);
+            result.put("redisAvailable", degradeService.isRedisAvailable());
+            if (sessionDegraded) {
+                result.put("sessionDegraded", true);
+            }
         }
         return result;
     }

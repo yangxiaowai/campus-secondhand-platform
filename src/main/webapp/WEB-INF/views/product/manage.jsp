@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="fmt" uri="http://java.sun.com/jsp/jstl/fmt" %>
+<c:set var="ctx" value="${pageContext.request.contextPath}" />
 <!DOCTYPE html>
 <html>
 <head>
@@ -11,16 +12,16 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container">
-            <a class="navbar-brand" href="/">校园二手交易平台</a>
+            <a class="navbar-brand" href="${ctx}/">校园二手交易平台</a>
             <div class="ml-auto">
-                <a href="/product/list" class="btn btn-sm btn-outline-primary">返回商品列表</a>
+                <a href="${ctx}/product/list" class="btn btn-sm btn-outline-primary">返回商品列表</a>
             </div>
         </div>
     </nav>
 
     <div class="container mt-4">
         <h2>我的商品管理</h2>
-        <a href="/product/publish" class="btn btn-success mb-3">发布新商品</a>
+        <a href="${ctx}/product/publish" class="btn btn-success mb-3">发布新商品</a>
         <table class="table table-bordered">
             <thead>
                 <tr>
@@ -37,8 +38,8 @@
                 <c:forEach items="${products}" var="product">
                     <tr>
                         <td>
-                            <img src="${product.imageUrl}" style="width: 80px; height: 80px; object-fit: cover;"
-                                 onerror="this.onerror=null;this.src='/static/img/placeholder.svg';">
+                            <img src="${ctx}${product.imageUrl}" style="width: 80px; height: 80px; object-fit: cover;"
+                                 onerror="this.onerror=null;this.src='${ctx}/static/img/placeholder.svg';">
                         </td>
                         <td>${product.name}</td>
                         <td>¥${product.price}</td>
@@ -50,7 +51,7 @@
                         </td>
                         <td><fmt:formatDate value="${product.createTime}" pattern="yyyy-MM-dd HH:mm"/></td>
                         <td>
-                            <a href="/product/detail?id=${product.id}" class="btn btn-sm btn-info">查看</a>
+                            <a href="${ctx}/product/detail?id=${product.id}" class="btn btn-sm btn-info">查看</a>
                             <c:if test="${product.status == 0}">
                                 <button class="btn btn-sm btn-warning" onclick="offline(${product.id})">下架</button>
                             </c:if>
@@ -71,7 +72,7 @@
         function offline(id) {
             if (confirm('确定要下架此商品吗？')) {
                 $.ajax({
-                    url: '/product/updateStatus',
+                    url: '${ctx}/product/updateStatus',
                     type: 'GET',
                     data: {id: id, status: 2},
                     success: function(result) {
@@ -87,7 +88,7 @@
 
         function online(id) {
             $.ajax({
-                url: '/product/updateStatus',
+                url: '${ctx}/product/updateStatus',
                 type: 'GET',
                 data: {id: id, status: 0},
                 success: function(result) {
@@ -103,7 +104,7 @@
         function deleteProduct(id) {
             if (confirm('确定要删除此商品吗？此操作不可恢复！')) {
                 $.ajax({
-                    url: '/product/delete',
+                    url: '${ctx}/product/delete',
                     type: 'GET',
                     data: {id: id},
                     success: function(result) {

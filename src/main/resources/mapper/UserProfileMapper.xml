@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.dao.UserProfileMapper">
+
+    <!-- 插入或更新用户画像 -->
+    <!-- profile_data 字段：syncProfileToDb() 中已将画像数据序列化为 JSON 字符串存入 profileDataJson -->
+    <insert id="upsert" parameterType="com.campus.entity.UserProfile">
+        INSERT INTO t_user_profile (user_id, profile_data, version, updated_time)
+        VALUES (
+            #{userId},
+            #{profileDataJson, jdbcType=VARCHAR},
+            COALESCE(#{version}, 0),
+            NOW()
+        )
+        ON DUPLICATE KEY UPDATE
+            profile_data = VALUES(profile_data),
+            version = version + 1,
+            updated_time = NOW()
+    </insert>
+
+
+    <!-- 根据用户ID查询画像 -->
+    <select id="findByUserId" resultMap="userProfileResultMap">
+        SELECT id, user_id, profile_data, version, updated_time
+        FROM t_user_profile
+        WHERE user_id = #{userId}
+    </select>
+
+    <!-- 删除用户画像 -->
+    <delete id="deleteByUserId">
+        DELETE FROM t_user_profile WHERE user_id = #{userId}
+    </delete>
+
+    <!-- 查询所有有画像数据的用户ID列表 -->
+    <select id="findAllUserIds" resultType="java.lang.Integer">
+        SELECT user_id FROM t_user_profile
+    </select>
+
+    <!-- 自定义结果映射 -->
+    <!-- profile_data 字段以 JSON 字符串形式读取到 profileDataJson，由 Service 层解析 -->
+    <resultMap id="userProfileResultMap" type="com.campus.entity.UserProfile">
+        <result property="userId" column="user_id"/>
+        <result property="version" column="version"/>
+        <result property="updatedTime" column="updated_time"/>
+        <result property="profileDataJson" column="profile_data" jdbcType="VARCHAR"/>
+    </resultMap>
+
+
+</mapper>

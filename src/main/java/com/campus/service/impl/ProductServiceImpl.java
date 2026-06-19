@@ -2,6 +2,8 @@ package com.campus.service.impl;
 
 import com.campus.dao.ProductMapper;
 import com.campus.entity.Product;
+import com.campus.service.MatchEngine;
+import com.campus.service.ProductSearchIndexService;
 import com.campus.service.ProductService;
 import com.github.pagehelper.PageHelper;
 import com.github.pagehelper.PageInfo;
@@ -22,6 +24,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Autowired
     private ProductMapper productMapper;
+
+    @Autowired(required = false)
+    private MatchEngine matchEngine;
+
+    @Autowired(required = false)
+    private ProductSearchIndexService productSearchIndexService;
 
     @Override
     public PageInfo<Product> findList(String keyword, Integer categoryId, Integer pageNum, Integer pageSize) {
@@ -46,23 +54,49 @@ public class ProductServiceImpl implements ProductService {
     public boolean publish(Product product) {
         product.setStatus(0); // 在售状态
         product.setViewCount(0);
-        return productMapper.insert(product) > 0;
+        boolean ok = productMapper.insert(product) > 0;
+        if (ok && matchEngine != null && product.getId() != null) {
+            try {
+                Product persisted = productMapper.findById(product.getId());
+                matchEngine.onProductPublished(persisted != null ? persisted : product);
+            } catch (Exception ex) {
+                logger.warn("成员B-MatchEngine 处理发布事件失败 productId={}", product.getId(), ex);
+            }
+        }
+        return ok;
     }
 
     @Override
     public boolean update(Product product) {
-        return productMapper.update(product) > 0;
+        boolean ok = productMapper.update(product) > 0;
+        if (ok && productSearchIndexService != null && product.getId() != null) {
+            try {
+                Product persisted = productMapper.findById(product.getId());
+                if (persisted != null) {
+                    productSearchIndexService.indexProduct(persisted);
+                }
+            } catch (Exception ex) {
+                logger.warn("搜索索引更新失败 productId={}", product.getId(), ex);
+            }
+        }
+        return ok;
     }
 
     @Override
     public boolean delete(Integer id) {
         try {
-            // 优先物理删除（无订单引用时）
-            return productMapper.delete(id) > 0;
+            boolean ok = productMapper.delete(id) > 0;
+            if (ok && productSearchIndexService != null) {
+                productSearchIndexService.removeProduct(id);
+            }
+            return ok;
         } catch (Exception ex) {
-            // 若被外键拦截（已有订单），自动逻辑删除：标记为已删除
             logger.warn("商品物理删除失败，降级为逻辑删除，productId={}", id, ex);
-            return productMapper.updateStatus(id, STATUS_DELETED) > 0;
+            boolean ok = productMapper.updateStatus(id, STATUS_DELETED) > 0;
+            if (ok && productSearchIndexService != null) {
+                productSearchIndexService.removeProduct(id);
+            }
+            return ok;
         }
     }
 
@@ -73,7 +107,22 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public boolean updateStatus(Integer id, Integer status) {
-        return productMapper.updateStatus(id, status) > 0;
+        boolean ok = productMapper.updateStatus(id, status) > 0;
+        if (ok && productSearchIndexService != null) {
+            try {
+                if (status != null && status == 0) {
+                    Product p = productMapper.findById(id);
+                    if (p != null) {
+                        productSearchIndexService.indexProduct(p);
+                    }
+                } else {
+                    productSearchIndexService.removeProduct(id);
+                }
+            } catch (Exception ex) {
+                logger.warn("搜索索引状态同步失败 productId={}", id, ex);
+            }
+        }
+        return ok;
     }
 
     @Override
